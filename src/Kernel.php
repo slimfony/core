@@ -13,6 +13,7 @@ use Slimfony\Core\Http\ErrorResponder;
 use Slimfony\Core\Http\MiddlewareInterface;
 use Slimfony\Core\Worker\StateResetter;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\DependencyInjection\Exception\ServiceNotFoundException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Matcher\CompiledUrlMatcher;
@@ -114,6 +115,24 @@ final class Kernel
         } catch (\Throwable $e) {
             $request->attributes->set(Attributes::ROUTING_ERROR, $e);
         }
+    }
+
+    /**
+     * A public service of the compiled container, for code that runs without an HTTP request (a queue consumer, an
+     * outbox relay, a scheduled job). Declare the service in services.php with `->setPublic(true)`; private services
+     * are not reachable from here.
+     *
+     * @throws ConfigurationException when there is no such public service
+     */
+    public function get(string $id): object
+    {
+        try {
+            $service = $this->container->get($id);
+        } catch (ServiceNotFoundException $e) {
+            throw new ConfigurationException(\sprintf('No public service "%s": declare it in services.php with ->setPublic(true).', $id), 0, $e);
+        }
+
+        return $service;
     }
 
     private function dispatch(Request $request): Response

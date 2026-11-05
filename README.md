@@ -274,6 +274,8 @@ $r->add('metrics', new Route('/metrics', ['_controller' => MetricsController::cl
 - `/readyz` (readiness) runs your `ReadinessCheck`s (`DatabaseReadinessCheck` is included), caches the result for 2 seconds and names failed checks without their error text.
 - `/metrics` refuses to be constructed unprotected: pass a bearer token (16+ characters) and/or a list of allowed client IPs/CIDRs. Nothing is exposed unless you register the route.
 - The built-in series are `http_requests_total{method,route,status}` and `http_request_duration_seconds{method,route}` (sub-millisecond buckets). The route label is the route name, never the raw URL. Add your own with `$registry->counter(...)` and `$registry->histogram(...)` at boot; `ConnectionLifecycle` accepts a counter for `db_transactions_leaked_total`.
+- `$registry->gauge(...)->set(212)` records a value that goes up and down (whole numbers in base units: bytes, messages, connections); a gauge shows the last value, not a sum. `Retry` accepts a counter with one `reason` label and counts every retry it makes: `new Retry($connection, retries: $registry->counter('db_retries_total', 'Database retries.', ['reason']))`.
+- A custom `Storage` (for example one shared between processes) implements `add()`, `set()` and `all()`.
 ## Authentication
 
 An `Authenticator` turns a request into a `Principal` (the caller: subject, scopes, claims) or `null`. `AuthMiddleware` enforces it: put it in the chain (after `RequestIdMiddleware`) and register the authenticator as the `Authenticator` service. From then on **everything is denied by default**: a request without a valid caller gets 401, also on paths that match no route (so the API cannot be mapped by its 404s). Routes opt out or demand scopes through their defaults:
@@ -336,6 +338,37 @@ Keys come from a `KeyProvider`:
 A signature check is the most expensive thing a request does (see Performance). A token that verified successfully is remembered by its hash for 30 seconds (`cacheSeconds`), never beyond its own `exp`, so repeated calls with the same token cost a hash and a lookup. A token revoked at the identity provider therefore stays usable for at most that long; `cacheSeconds: 0` verifies every request. Only successes are remembered, so invalid tokens cannot fill the cache.
 
 Any other scheme, for example an identity header set by a trusted gateway, is an `Authenticator` too: return a `Principal`, or `null` when the caller is not authenticated.
+## Consumers and jobs (without HTTP)
+
+A queue consumer, an outbox relay or a scheduled job boots the same container as the web workers and reaches its services through `Kernel::get()`; declare the services it needs with `->setPublic(true)`. `ConsumerRunner` is the loop: after every message the request-scoped services are reset, and the loop ends after a number of messages, above a memory limit, on SIGTERM or SIGINT (with `ext-pcntl`), or when the source is empty. A failing reset stops it, because the state is unknown.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Slimfony\Core\Kernel;
+use Slimfony\Core\Worker\ConsumerRunner;
+
+require __DIR__ . '/../vendor/autoload.php';
+
+$kernel = new Kernel(__DIR__ . '/../config/services.php', __DIR__ . '/../config/routes.php', cacheDir: __DIR__ . '/../var/cache');
+$queue = $kernel->get(MessageQueue::class); // your service, declared public in services.php
+
+new ConsumerRunner($kernel, maxMessages: 10_000)->run(static function () use ($queue): bool {
+    $message = $queue->next(); // waits for one message, null when the queue is closed
+    if (null === $message) {
+        return false;
+    }
+
+    $message->handle(); // handle it and acknowledge it: errors are the handler's own business
+    $queue->acknowledge($message);
+
+    return true;
+});
+```
+
+Tag log lines of a message with `RequestContext::start($requestId, $traceId)`, the same way the request id middleware does for a request. The metrics of such a process live in its own memory: give it a `Storage` that is shared with whatever serves `/metrics`.
 ## What is in the box
 
 | Component | What it does |
@@ -343,6 +376,7 @@ Any other scheme, for example an identity header set by a trusted gateway, is an
 | `Kernel` | Boots once, routes, runs controllers, turns errors into `application/problem+json` (400, 404, 405 with `Allow`, 413, 500). |
 | `Http\RequestIdMiddleware`, `SecurityHeadersMiddleware`, `BodySizeLimitMiddleware` | Request id and trace id (forged values replaced), secure response headers, 413 on a too large `Content-Length`. |
 | `Worker\WorkerRunner` | The worker loop: max requests, memory limit, optional GC, stops when a reset fails. |
+| `Worker\ConsumerRunner` | The loop of a non-HTTP process (queue consumer, relay, job): reset after every message, message and memory limits, stop on SIGTERM. |
 | `Build\ContainerCompiler`, `CompilationCache` | Compile the configuration and dump it at build time (`vendor/bin/slimfony warmup`). |
 | `Log\JsonStdoutLogger` | One JSON object per line on stdout, tagged with request id and trace id; secrets are redacted. |
 | `Config\Env`, `Config\Trust` | Typed environment access with `NAME_FILE` secrets; trusted proxies and hosts. |

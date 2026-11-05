@@ -8,6 +8,7 @@ use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Exception\ConnectionLost;
 use Doctrine\DBAL\Exception\RetryableException;
 use Psr\Log\LoggerInterface;
+use Slimfony\Core\Observability\Counter;
 
 /**
  * Bounded retries for the two failures that are safe to retry:
@@ -23,17 +24,25 @@ use Psr\Log\LoggerInterface;
  */
 final class Retry
 {
+    /** value of the counter's label for a lost connection */
+    public const string REASON_CONNECTION_LOST = 'connection_lost';
+    /** value of the counter's label for a deadlock, lock timeout or serialization failure */
+    public const string REASON_RETRYABLE = 'retryable';
+
     /** @var \Closure(int): void */
     private readonly \Closure $sleep;
 
     /**
-     * @param (\Closure(int): void)|null $sleep microseconds; defaults to usleep
+     * @param (\Closure(int): void)|null $sleep   microseconds; defaults to usleep
+     * @param Counter|null                $retries counts every retry that is actually made; it must declare exactly one
+     *                                             label, whose value is REASON_CONNECTION_LOST or REASON_RETRYABLE
      */
     public function __construct(
         private readonly Connection $connection,
         private readonly ?LoggerInterface $logger = null,
         private int $maxAttempts = 3 { set => $value >= 1 ? $value : throw new \InvalidArgumentException('maxAttempts must be at least 1.'); },
         ?\Closure $sleep = null,
+        private readonly ?Counter $retries = null,
     ) {
         $this->sleep = $sleep ?? usleep(...);
     }
@@ -83,11 +92,13 @@ final class Retry
                 if (!$retryConnectionLoss || $attempt >= $this->maxAttempts) {
                     throw $e;
                 }
+                $this->retries?->inc([self::REASON_CONNECTION_LOST]);
                 $this->logger?->warning('Database connection lost, retrying', ['attempt' => $attempt]);
             } catch (RetryableException $e) {
                 if ($attempt >= $this->maxAttempts) {
                     throw $e;
                 }
+                $this->retries?->inc([self::REASON_RETRYABLE]);
                 $this->logger?->warning('Retryable database error, retrying transaction', ['attempt' => $attempt, 'error' => $e::class]);
             }
 

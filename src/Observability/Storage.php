@@ -16,6 +16,9 @@ interface Storage
     /** Atomically adds $by to the value under $key, creating it at 0 first. */
     public function add(string $key, int $by): void;
 
+    /** Replaces the value under $key (gauges); unlike add(), it does not accumulate. */
+    public function set(string $key, int $value): void;
+
     /**
      * @return array<string, int> every key with its current value
      */

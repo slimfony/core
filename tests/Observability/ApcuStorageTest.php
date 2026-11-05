@@ -39,4 +39,16 @@ final class ApcuStorageTest extends TestCase
 
         apcu_delete('slimfony_test_foreign_key');
     }
+
+    public function testSetReplacesWhileAddAccumulates(): void
+    {
+        $storage = new ApcuStorage($this->prefix);
+
+        $storage->set('g|depth|', 10);
+        $storage->set('g|depth|', 4);
+        $storage->add('c|total|', 5);
+        $storage->add('c|total|', 5);
+
+        self::assertEquals(['g|depth|' => 4, 'c|total|' => 10], $storage->all());
+    }
 }

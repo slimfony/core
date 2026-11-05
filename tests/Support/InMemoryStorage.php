@@ -19,6 +19,12 @@ final class InMemoryStorage implements Storage
     }
 
     #[\Override]
+    public function set(string $key, int $value): void
+    {
+        $this->values[$key] = $value;
+    }
+
+    #[\Override]
     public function all(): array
     {
         return $this->values;

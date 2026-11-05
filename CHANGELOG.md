@@ -4,6 +4,15 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+- `Kernel::get()`: a public service of the container for code that runs without an HTTP request.
+- `Worker\ConsumerRunner`: the loop of a non-HTTP process (reset after every message, message and memory limits, stop on SIGTERM or SIGINT).
+- `Observability\Gauge` and `MetricsRegistry::gauge()`.
+- `Retry` counts its retries in an optional counter (`db_retries_total`, label `reason`).
+
+### Changed
+- `Observability\Storage` gains `set()`; custom implementations must add it.
+
 ## [0.2.0] - 2026-11-05
 
 ### Added

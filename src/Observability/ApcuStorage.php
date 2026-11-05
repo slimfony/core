@@ -33,6 +33,12 @@ final class ApcuStorage implements Storage
     }
 
     #[\Override]
+    public function set(string $key, int $value): void
+    {
+        apcu_store($this->prefix . $key, $value);
+    }
+
+    #[\Override]
     public function all(): array
     {
         $values = [];

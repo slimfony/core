@@ -34,6 +34,16 @@ final class MetricsRegistry
 
     /**
      * @param list<string> $labelNames
+     */
+    public function gauge(string $name, string $help, array $labelNames = []): Gauge
+    {
+        $this->define($name, 'gauge', $help, $labelNames, []);
+
+        return new Gauge($this->storage, $name, $labelNames);
+    }
+
+    /**
+     * @param list<string> $labelNames
      * @param list<float>  $buckets    upper bounds in seconds, strictly ascending
      */
     public function histogram(string $name, string $help, array $labelNames = [], array $buckets = self::DEFAULT_BUCKETS): Histogram
@@ -56,7 +66,7 @@ final class MetricsRegistry
 
     public function render(): string
     {
-        $samples = ['counter' => [], 'bucket' => [], 'count' => [], 'sum' => []];
+        $samples = ['counter' => [], 'gauge' => [], 'bucket' => [], 'count' => [], 'sum' => []];
         foreach ($this->storage->all() as $key => $value) {
             $parsed = Keys::parse($key);
             if (null === $parsed || !isset($this->definitions[$parsed['name']])) {
@@ -65,6 +75,7 @@ final class MetricsRegistry
             $labels = 'L' . $parsed['labels'];
             match ($parsed['kind']) {
                 Keys::COUNTER => $samples['counter'][$parsed['name']][$labels] = $value,
+                Keys::GAUGE => $samples['gauge'][$parsed['name']][$labels] = $value,
                 Keys::BUCKET => $samples['bucket'][$parsed['name']][$labels][$parsed['bucket'] ?? 0] = $value,
                 Keys::COUNT => $samples['count'][$parsed['name']][$labels] = $value,
                 Keys::SUM_MICROSECONDS => $samples['sum'][$parsed['name']][$labels] = $value,
@@ -79,8 +90,8 @@ final class MetricsRegistry
             $definition = $this->definitions[$name];
             $out .= '# HELP ' . $name . ' ' . self::escapeHelp($definition['help']) . "\n# TYPE " . $name . ' ' . $definition['type'] . "\n";
 
-            if ('counter' === $definition['type']) {
-                $series = $samples['counter'][$name] ?? [];
+            if ('counter' === $definition['type'] || 'gauge' === $definition['type']) {
+                $series = $samples[$definition['type']][$name] ?? [];
                 ksort($series);
                 foreach ($series as $labels => $value) {
                     $out .= $name . self::labels($definition['labels'], $labels) . ' ' . $value . "\n";
