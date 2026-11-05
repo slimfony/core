@@ -16,6 +16,7 @@ final class RequestIdMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly ?RequestContext $context = null) {}
 
+    #[\Override]
     public function process(Request $request, \Closure $next): Response
     {
         $id = $request->headers->get('X-Request-Id');
@@ -27,12 +28,9 @@ final class RequestIdMiddleware implements MiddlewareInterface
             ? $m[1]
             : bin2hex(random_bytes(16));
 
-        $request->attributes->set('request_id', $requestId);
-        $request->attributes->set('trace_id', $traceId);
-        if (null !== $this->context) { // lets the logger tag every line of this request
-            $this->context->requestId = $requestId;
-            $this->context->traceId = $traceId;
-        }
+        $request->attributes->set(Attributes::REQUEST_ID, $requestId);
+        $request->attributes->set(Attributes::TRACE_ID, $traceId);
+        $this->context?->start($requestId, $traceId); // lets the logger tag every line of this request
 
         $response = $next($request);
         $response->headers->set('X-Request-Id', $requestId);

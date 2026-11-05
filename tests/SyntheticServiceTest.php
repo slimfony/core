@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Slimfony\Core\Tests;
 
 use PHPUnit\Framework\TestCase;
-use Slimfony\Core\Build\Compiler;
+use Slimfony\Core\Build\CompilationCache;
+use Slimfony\Core\Build\ContainerCompiler;
 use Slimfony\Core\Kernel;
 use Slimfony\Core\Tests\Fixtures\Greeter;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,7 +29,7 @@ final class SyntheticServiceTest extends TestCase
     public function testTheSameWorksFromTheWarmedCache(): void
     {
         $dir = sys_get_temp_dir() . '/slimfony-test-' . bin2hex(random_bytes(6));
-        Compiler::warmup(__DIR__ . '/Fixtures/Bad/synthetic_services.php', __DIR__ . '/Fixtures/Bad/hello_routes.php', $dir);
+        new CompilationCache($dir)->store(new ContainerCompiler(__DIR__ . '/Fixtures/Bad/synthetic_services.php', __DIR__ . '/Fixtures/Bad/hello_routes.php')->compile());
 
         try {
             $kernel = new Kernel('/x', '/y', cacheDir: $dir, synthetic: [Greeter::class => new Greeter()]);

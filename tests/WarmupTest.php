@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Slimfony\Core\Tests;
 
 use PHPUnit\Framework\TestCase;
-use Slimfony\Core\Build\Compiler;
+use Slimfony\Core\Build\CompilationCache;
+use Slimfony\Core\Build\ContainerCompiler;
 use Slimfony\Core\Kernel;
 use Slimfony\Core\Tests\Support\RecordingLogger;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,7 +35,7 @@ final class WarmupTest extends TestCase
 
     public function testBootFromTheWarmedCacheServesTheAppWithoutTouchingTheConfigFiles(): void
     {
-        Compiler::warmup(self::FIXTURES . '/services.php', self::FIXTURES . '/routes.php', $this->cacheDir);
+        new CompilationCache($this->cacheDir)->store(new ContainerCompiler(self::FIXTURES . '/services.php', self::FIXTURES . '/routes.php')->compile());
 
         // the config files do not even exist here: everything must come from the cache
         $kernel = new Kernel('/nonexistent/services.php', '/nonexistent/routes.php', cacheDir: $this->cacheDir);
@@ -60,7 +61,7 @@ final class WarmupTest extends TestCase
     public function testBrokenConfigurationFailsTheWarmupAndLeavesNoCacheBehind(): void
     {
         try {
-            Compiler::warmup(self::FIXTURES . '/services.php', self::FIXTURES . '/Bad/route_without_controller.php', $this->cacheDir);
+            new CompilationCache($this->cacheDir)->store(new ContainerCompiler(self::FIXTURES . '/services.php', self::FIXTURES . '/Bad/route_without_controller.php')->compile());
             self::fail('A broken configuration must fail the image build.');
         } catch (\LogicException) {
             self::assertFileDoesNotExist($this->cacheDir . '/manifest.php');

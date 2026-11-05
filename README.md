@@ -70,7 +70,7 @@ use Slimfony\Core\Kernel;
 use Slimfony\Core\Worker\WorkerRunner;
 
 $env = Env::fromGlobals();
-Trust::apply($env); // TRUSTED_PROXIES / TRUSTED_HOSTS, nothing trusted by default
+(new Trust($env))->apply(); // TRUSTED_PROXIES / TRUSTED_HOSTS, nothing trusted by default
 
 $kernel = new Kernel(
     __DIR__ . '/../config/services.php',
@@ -98,7 +98,7 @@ and pass `cacheDir: __DIR__ . '/../var/cache'` as the last `Kernel` argument. Wo
 | `Kernel` | Boots once, routes, runs controllers, turns errors into `application/problem+json` (404, 405 with `Allow`, 413, 500). |
 | `Http\*Middleware` | `RequestId` (request id + trace id, forged values replaced), `SecurityHeaders`, `BodySizeLimit`. |
 | `Worker\WorkerRunner` | The worker loop: max requests, memory limit, optional GC, fail-fast on reset errors. |
-| `Build\Compiler` | Warmup: dumps the compiled container and route table at build time (`bin/slimfony warmup`). |
+| `Build\ContainerCompiler`, `Build\CompilationCache` | Compile the config, and dump it at build time (`bin/slimfony warmup`) so workers only `require` it. |
 | `Config\Env`, `Config\Trust` | Typed env access with `NAME_FILE` secret files; trusted proxies and hosts (secure defaults). |
 | `Worker\StateResetter` | Resets every service implementing `ResetInterface` that was used during the request. |
 

@@ -3,7 +3,8 @@
 
 declare(strict_types=1);
 
-use Slimfony\Core\Build\Compiler;
+use Slimfony\Core\Build\CompilationCache;
+use Slimfony\Core\Build\ContainerCompiler;
 
 foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php'] as $autoload) {
     if (is_file($autoload)) {
@@ -13,7 +14,7 @@ foreach ([__DIR__ . '/../vendor/autoload.php', __DIR__ . '/../../../autoload.php
     }
 }
 
-if (!class_exists(Compiler::class)) {
+if (!class_exists(ContainerCompiler::class)) {
     fwrite(STDERR, "Composer autoloader not found. Run `composer install` first.\n");
     exit(1);
 }
@@ -24,7 +25,7 @@ if (5 !== $argc || 'warmup' !== $argv[1]) {
 }
 
 try {
-    Compiler::warmup($argv[2], $argv[3], $argv[4]);
+    (new CompilationCache($argv[4]))->store((new ContainerCompiler($argv[2], $argv[3]))->compile());
 } catch (Throwable $e) {
     fwrite(STDERR, 'Warmup failed: ' . $e->getMessage() . "\n");
     exit(1);

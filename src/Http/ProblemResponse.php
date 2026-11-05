@@ -7,20 +7,16 @@ namespace Slimfony\Core\Http;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * RFC 9457 problem+json responses.
+ * RFC 9457 problem+json response. $detail is client-facing: never put internals in it.
  */
-final class Problem
+final class ProblemResponse extends Response
 {
     /**
      * @param array<string, string> $headers
      */
-    public static function response(
-        int $status,
-        ?string $requestId = null,
-        string $detail = '',
-        array $headers = [],
-    ): Response {
-        $body = ['type' => 'about:blank', 'title' => Response::$statusTexts[$status] ?? 'Error', 'status' => $status];
+    public function __construct(int $status, ?string $requestId = null, string $detail = '', array $headers = [])
+    {
+        $body = ['type' => 'about:blank', 'title' => self::$statusTexts[$status] ?? 'Error', 'status' => $status];
         if ('' !== $detail) {
             $body['detail'] = $detail;
         }
@@ -28,7 +24,7 @@ final class Problem
             $body['request_id'] = $requestId;
         }
 
-        return new Response(
+        parent::__construct(
             json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
             $status,
             ['Content-Type' => 'application/problem+json'] + $headers,

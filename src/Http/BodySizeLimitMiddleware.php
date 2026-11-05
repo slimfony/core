@@ -15,13 +15,14 @@ final class BodySizeLimitMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly int $maxBytes = 1_048_576) {}
 
+    #[\Override]
     public function process(Request $request, \Closure $next): Response
     {
         $length = $request->headers->get('Content-Length');
         if (null !== $length && (!ctype_digit($length) || (int) $length > $this->maxBytes)) {
-            $id = $request->attributes->get('request_id');
+            $id = $request->attributes->get(Attributes::REQUEST_ID);
 
-            return Problem::response(413, \is_string($id) ? $id : null);
+            return new ProblemResponse(413, \is_string($id) ? $id : null);
         }
 
         return $next($request);

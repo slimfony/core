@@ -32,7 +32,7 @@ final class WorkerRunnerTest extends TestCase
         };
 
         ob_start();
-        (new WorkerRunner($this->kernel(), $logger, $server, static fn(): Request => Request::create($path), $maxRequests))->run();
+        new WorkerRunner($this->kernel(), $logger, $server, static fn(): Request => Request::create($path), $maxRequests)->run();
 
         return ['output' => (string) ob_get_clean(), 'handled' => $handled];
     }

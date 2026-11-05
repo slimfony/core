@@ -16,7 +16,7 @@ final class EnvTest extends TestCase
         file_put_contents($file, "s3cr3t\n");
 
         try {
-            self::assertSame('s3cr3t', (new Env(['DB_PASSWORD_FILE' => $file]))->string('DB_PASSWORD'));
+            self::assertSame('s3cr3t', new Env(['DB_PASSWORD_FILE' => $file])->string('DB_PASSWORD'));
         } finally {
             unlink($file);
         }
@@ -25,13 +25,13 @@ final class EnvTest extends TestCase
     public function testAmbiguousOrBrokenSecretSourcesFailLoudlyAtBoot(): void
     {
         try {
-            (new Env(['X' => 'a', 'X_FILE' => '/tmp/b']))->get('X');
+            new Env(['X' => 'a', 'X_FILE' => '/tmp/b'])->get('X');
             self::fail('Both X and X_FILE must be rejected.');
         } catch (\LogicException) {
         }
 
         $this->expectException(\RuntimeException::class);
-        (new Env(['X_FILE' => '/nonexistent/secret']))->get('X');
+        new Env(['X_FILE' => '/nonexistent/secret'])->get('X');
     }
 
     public function testTypedAccessIsStrictInsteadOfGuessing(): void

@@ -11,17 +11,15 @@ use Psr\Log\LogLevel;
  * One JSON object per line on stdout (what Kubernetes and every log shipper expects).
  *
  * - request_id / trace_id are added automatically while a request is being served (see RequestContext).
- * - Values under keys that look like secrets are replaced, and credentials inside URLs/DSNs are masked.
- * - Exceptions are written without trace arguments (arguments often hold secrets).
+ * - Context goes through ContextSanitizer: no secrets, no trace arguments.
  * - It never throws: logging must not be able to break a request.
  */
 final class JsonStdoutLogger extends AbstractLogger
 {
-    private const LEVELS = [
+    private const array LEVELS = [
         LogLevel::DEBUG => 0, LogLevel::INFO => 1, LogLevel::NOTICE => 2, LogLevel::WARNING => 3,
         LogLevel::ERROR => 4, LogLevel::CRITICAL => 5, LogLevel::ALERT => 6, LogLevel::EMERGENCY => 7,
     ];
-    private const SECRET_KEY = '/pass|secret|token|authorization|api[-_]?key|cookie|dsn|credential/i';
 
     /** @var \Closure(string): void */
     private readonly \Closure $sink;
@@ -36,23 +34,13 @@ final class JsonStdoutLogger extends AbstractLogger
         string $minLevel = LogLevel::INFO,
         private readonly ?RequestContext $context = null,
         ?\Closure $sink = null,
+        private readonly ContextSanitizer $sanitizer = new ContextSanitizer(),
     ) {
         $this->minLevel = self::LEVELS[$minLevel] ?? throw new \InvalidArgumentException(\sprintf('Unknown log level "%s".', $minLevel));
         $this->sink = $sink ?? $this->writeToStdout(...);
     }
 
-    private function writeToStdout(string $line): void
-    {
-        if (null === $this->stdout) {
-            $handle = fopen('php://stdout', 'w');
-            if (false === $handle) {
-                return;
-            }
-            $this->stdout = $handle;
-        }
-        fwrite($this->stdout, $line);
-    }
-
+    #[\Override]
     public function log(mixed $level, string|\Stringable $message, array $context = []): void
     {
         $level = \is_string($level) ? $level : 'unknown';
@@ -60,11 +48,11 @@ final class JsonStdoutLogger extends AbstractLogger
             return;
         }
 
-        $safe = self::sanitize($context);
+        $safe = $this->sanitizer->sanitize($context);
         $record = [
-            'ts' => (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s.v\Z'),
+            'ts' => new \DateTimeImmutable('now', new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s.v\Z'),
             'level' => $level,
-            'message' => self::interpolate(self::mask((string) $message), $safe),
+            'message' => self::interpolate($this->sanitizer->mask((string) $message), $safe),
         ];
         if (null !== $this->context?->requestId) {
             $record['request_id'] = $this->context->requestId;
@@ -84,56 +72,16 @@ final class JsonStdoutLogger extends AbstractLogger
         }
     }
 
-    /**
-     * @param array<mixed> $context
-     *
-     * @return array<mixed>
-     */
-    private static function sanitize(array $context, int $depth = 0): array
+    private function writeToStdout(string $line): void
     {
-        $out = [];
-        foreach ($context as $key => $value) {
-            if (\is_string($key) && 1 === preg_match(self::SECRET_KEY, $key)) {
-                $out[$key] = '[redacted]';
-            } elseif ($value instanceof \Throwable) {
-                $out[$key] = self::exception($value);
-            } elseif (\is_array($value)) {
-                $out[$key] = $depth < 5 ? self::sanitize($value, $depth + 1) : '[max depth]';
-            } elseif (\is_string($value)) {
-                $out[$key] = self::mask($value);
-            } elseif (null === $value || \is_scalar($value)) {
-                $out[$key] = $value;
-            } elseif ($value instanceof \Stringable) {
-                $out[$key] = self::mask((string) $value);
-            } else {
-                $out[$key] = '[' . get_debug_type($value) . ']';
+        if (null === $this->stdout) {
+            $handle = fopen('php://stdout', 'w');
+            if (false === $handle) {
+                return;
             }
+            $this->stdout = $handle;
         }
-
-        return $out;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private static function exception(\Throwable $e): array
-    {
-        $trace = [];
-        foreach (\array_slice($e->getTrace(), 0, 15) as $frame) {
-            $trace[] = ($frame['file'] ?? '?') . ':' . ($frame['line'] ?? 0) . ' ' . ($frame['class'] ?? '') . ($frame['type'] ?? '') . $frame['function'];
-        }
-        $out = ['class' => $e::class, 'message' => self::mask($e->getMessage()), 'file' => $e->getFile() . ':' . $e->getLine(), 'trace' => $trace];
-        if (null !== $e->getPrevious()) {
-            $out['previous'] = $e->getPrevious()::class . ': ' . self::mask($e->getPrevious()->getMessage());
-        }
-
-        return $out;
-    }
-
-    /** Masks the password part of anything URL/DSN shaped: scheme://user:password@host */
-    private static function mask(string $text): string
-    {
-        return preg_replace('#(://[^/\s:@]+:)[^@\s]+@#', '$1[redacted]@', $text) ?? $text;
+        fwrite($this->stdout, $line);
     }
 
     /**

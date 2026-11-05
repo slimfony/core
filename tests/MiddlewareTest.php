@@ -47,7 +47,7 @@ final class MiddlewareTest extends TestCase
     private static function traceIdFor(string $traceparent): string
     {
         $trace = '';
-        (new RequestIdMiddleware())->process(
+        new RequestIdMiddleware()->process(
             Request::create('/', server: ['HTTP_TRACEPARENT' => $traceparent]),
             static function (Request $r) use (&$trace): Response {
                 $id = $r->attributes->get('trace_id');
@@ -87,7 +87,7 @@ final class MiddlewareTest extends TestCase
         self::assertTrue($plain->headers->hasCacheControlDirective('no-store'));
         self::assertStringContainsString("default-src 'none'", (string) $plain->headers->get('Content-Security-Policy'));
 
-        $cached = $middleware->process(Request::create('/'), static fn(): Response => (new Response())->setPublic()->setMaxAge(60));
+        $cached = $middleware->process(Request::create('/'), static fn(): Response => new Response()->setPublic()->setMaxAge(60));
         self::assertTrue($cached->headers->hasCacheControlDirective('max-age'));
         self::assertFalse($cached->headers->hasCacheControlDirective('no-store'));
     }

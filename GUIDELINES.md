@@ -37,7 +37,10 @@ Binding rules for every change. If a change breaks one, it needs a written reaso
 
 ## 5. Code quality
 - `declare(strict_types=1)`, `final` by default, `readonly` where possible, interfaces only at external boundaries (storage, authenticator, clock-like seams) - no interface with one implementation otherwise.
-- PHPStan `level: max` + strict rules, no baseline; PER-CS via php-cs-fixer.
+- PHPStan `level: max` + strict rules, no baseline; PER-CS plus `@PHP8x4Migration` via php-cs-fixer.
+- Modern PHP 8.4 style: typed class constants, `#[\Override]` on every implemented/overridden method, asymmetric visibility (`public private(set)`) instead of public mutable properties, `readonly` value objects, `new Foo()->bar()` without extra parentheses. Names that cross class boundaries (request attributes, container parameters) are constants, never repeated string literals.
+- Objects over static helpers: collaborators are injected instances; `static` only for pure functions on their arguments and named constructors. The one exception is `Config\Trust`, which writes Symfony's static request state once at boot.
+- One responsibility per class (e.g. logger vs. context sanitizer, kernel vs. error responder). `tests/ArchitectureTest.php` enforces `strict_types`, `final` and `#[\Override]` for everything in `src/`.
 - Tests: few, real, deterministic. No coverage target. Every test pins a concrete business or security behaviour (e.g. a leaked transaction is rolled back, a failed reset kills the worker, 404 label is `unmatched`); no getter/constructor/mock-echo tests, no sleeps, no timing assertions, no test-order or network dependence. A flaky test is deleted or fixed the same day, never retried.
 - Anything touching DB or APCu runs against the real thing in CI (PostgreSQL service, APCu enabled); SQLite / in-memory doubles are for fast local runs only.
 - Public API changes are recorded in `CHANGELOG.md`; SemVer.

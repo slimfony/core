@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class SecurityHeadersMiddleware implements MiddlewareInterface
 {
+    #[\Override]
     public function process(Request $request, \Closure $next): Response
     {
         $response = $next($request);

@@ -8,6 +8,7 @@ return (new PhpCsFixer\Config())
     ->setRiskyAllowed(true)
     ->setRules([
         '@PER-CS' => true,
+        '@PHP8x4Migration' => true,
         'declare_strict_types' => true,
         'final_class' => true,
     ])

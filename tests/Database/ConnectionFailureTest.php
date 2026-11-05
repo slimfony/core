@@ -25,7 +25,7 @@ final class ConnectionFailureTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
 
-        (new ConnectionLifecycle($connection))->reset();
+        new ConnectionLifecycle($connection)->reset();
     }
 
     public function testNothingIsRetriedInsideAnAlreadyOpenTransaction(): void

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Slimfony\Core\Tests\Config;
 
 use PHPUnit\Framework\TestCase;
-use Slimfony\Core\Build\Compiler;
+use Slimfony\Core\Build\CompilationCache;
+use Slimfony\Core\Build\ContainerCompiler;
 use Slimfony\Core\Config\Env;
 use Slimfony\Core\Config\Trust;
 use Slimfony\Core\Kernel;
@@ -27,17 +28,17 @@ final class TrustTest extends TestCase
 
     public function testForwardedHeadersAreIgnoredUnlessTheDirectPeerIsATrustedProxy(): void
     {
-        Trust::apply(new Env([]));
+        new Trust(new Env([]))->apply();
         self::assertSame('10.1.2.3', self::forwarded('10.1.2.3')->getClientIp(), 'secure default: nothing trusted');
 
-        Trust::apply(new Env(['TRUSTED_PROXIES' => '10.0.0.0/8']));
+        new Trust(new Env(['TRUSTED_PROXIES' => '10.0.0.0/8']))->apply();
         self::assertSame('203.0.113.9', self::forwarded('10.1.2.3')->getClientIp());
         self::assertSame('192.0.2.1', self::forwarded('192.0.2.1')->getClientIp(), 'a spoofing client cannot set X-Forwarded-For');
     }
 
     public function testRequestsForAnUntrustedHostAreAnswered400NotServed(): void
     {
-        Trust::apply(new Env(['TRUSTED_HOSTS' => 'api.example.com']));
+        new Trust(new Env(['TRUSTED_HOSTS' => 'api.example.com']))->apply();
         $kernel = new Kernel(__DIR__ . '/../Fixtures/services.php', __DIR__ . '/../Fixtures/routes.php');
 
         self::assertSame(200, $kernel->handle(Request::create('http://api.example.com/hello/x'))->getStatusCode());
@@ -50,7 +51,7 @@ final class TrustTest extends TestCase
         putenv('SLIMFONY_TEST_SECRET=top-secret-value-123');
 
         try {
-            Compiler::warmup(__DIR__ . '/../Fixtures/Bad/secret_in_env.php', __DIR__ . '/../Fixtures/Bad/empty_routes.php', $dir);
+            new CompilationCache($dir)->store(new ContainerCompiler(__DIR__ . '/../Fixtures/Bad/secret_in_env.php', __DIR__ . '/../Fixtures/Bad/empty_routes.php')->compile());
 
             $files = glob($dir . '/*');
             self::assertNotEmpty($files);

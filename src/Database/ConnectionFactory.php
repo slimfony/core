@@ -25,7 +25,7 @@ final class ConnectionFactory
         int $connectTimeoutSeconds = 3,
         string $applicationName = 'slimfony',
     ): Connection {
-        $params = (new DsnParser(['pdo-pgsql' => 'pdo_pgsql', 'pgsql' => 'pdo_pgsql']))->parse($dsn);
+        $params = new DsnParser(['pdo-pgsql' => 'pdo_pgsql', 'pgsql' => 'pdo_pgsql'])->parse($dsn);
         $params['application_name'] = $applicationName;
         $params['driverOptions'] = [\PDO::ATTR_TIMEOUT => $connectTimeoutSeconds, \PDO::ATTR_PERSISTENT => false]
             + ($transactionPooling ? [\PDO::ATTR_EMULATE_PREPARES => true] : []);

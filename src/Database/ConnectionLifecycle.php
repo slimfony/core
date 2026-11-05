@@ -42,6 +42,7 @@ final class ConnectionLifecycle implements ResetInterface
         }
     }
 
+    #[\Override]
     public function reset(): void
     {
         try {

@@ -5,38 +5,35 @@ declare(strict_types=1);
 namespace Slimfony\Core;
 
 use Psr\Log\LoggerInterface;
-use Slimfony\Core\Exception\HttpException;
-use Slimfony\Core\Build\Compiler;
+use Slimfony\Core\Build\CompilationCache;
+use Slimfony\Core\Build\ContainerCompiler;
+use Slimfony\Core\Http\Attributes;
+use Slimfony\Core\Http\ErrorResponder;
 use Slimfony\Core\Http\MiddlewareInterface;
-use Slimfony\Core\Http\Problem;
 use Slimfony\Core\Worker\StateResetter;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\Exception\SuspiciousOperationException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Routing\Exception\MethodNotAllowedException;
-use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Matcher\CompiledUrlMatcher;
 use Symfony\Component\Routing\RequestContext;
 
 /**
- * Boots once (container compile, router compile, middleware chain), then handles requests.
+ * Boots once (container, router, middleware chain), then handles requests. Errors become problem+json
+ * responses (see ErrorResponder), also when they come from a middleware.
  *
- * services.php: returns Closure(ContainerBuilder): void. Optional parameter
- *   'slimfony.middleware' = list of service ids (outermost first).
- * routes.php:   returns Closure(RouteCollection): void. Route '_controller' is a service id
- *   whose service is invokable: __invoke(Request): Response.
+ * Configuration files and their contract: see ContainerCompiler.
  */
 final class Kernel
 {
     private readonly ContainerInterface $container;
     private readonly CompiledUrlMatcher $matcher;
+    private readonly ErrorResponder $errors;
     /** @var \Closure(Request): Response */
     private readonly \Closure $chain;
 
     /**
-     * @param string|null $cacheDir directory written by Compiler::warmup() / `bin/slimfony warmup`. Used when it holds a
-     *                              complete cache and $debug is false; otherwise the config is compiled at boot.
+     * @param string|null           $cacheDir  directory written by `bin/slimfony warmup`. Used when it holds a complete
+     *                                         cache and $debug is false; otherwise the config is compiled at boot.
      * @param array<string, object> $synthetic objects created before the container (logger, request context, config)
      *                                         that services need. Declare them in services.php with
      *                                         `->setSynthetic(true)->setPublic(true)`.
@@ -44,26 +41,30 @@ final class Kernel
     public function __construct(
         string $servicesFile,
         string $routesFile,
-        private readonly bool $debug = false,
-        private readonly ?LoggerInterface $logger = null,
+        bool $debug = false,
+        ?LoggerInterface $logger = null,
         ?string $cacheDir = null,
         array $synthetic = [],
     ) {
-        $built = null !== $cacheDir && !$debug ? Compiler::fromCache($cacheDir) : null;
-        if (null !== $cacheDir && !$debug && null === $built) {
-            $logger?->warning('No compiled cache found; compiling at boot. Run `bin/slimfony warmup` at build time.');
+        $compilation = null;
+        if (null !== $cacheDir && !$debug) {
+            $compilation = new CompilationCache($cacheDir)->load();
+            if (null === $compilation) {
+                $logger?->warning('No compiled cache found; compiling at boot. Run `bin/slimfony warmup` at build time.');
+            }
         }
-        [$container, $compiledRoutes] = $built ?? Compiler::compile($servicesFile, $routesFile);
+        $compilation ??= new ContainerCompiler($servicesFile, $routesFile)->compile();
 
+        $container = $compilation->container;
         foreach ($synthetic as $id => $service) {
             $container->set($id, $service);
         }
         $this->container = $container;
-        $this->matcher = new CompiledUrlMatcher($compiledRoutes, new RequestContext());
+        $this->matcher = new CompiledUrlMatcher($compilation->routes, new RequestContext());
+        $this->errors = new ErrorResponder($debug, $logger);
 
-        $middlewareIds = Compiler::middlewareIds($container->getParameter('slimfony.middleware'));
         $chain = $this->dispatch(...);
-        foreach (array_reverse($middlewareIds) as $id) {
+        foreach (array_reverse($compilation->middlewareIds()) as $id) {
             $middleware = $container->get($id);
             if (!$middleware instanceof MiddlewareInterface) {
                 throw new \LogicException(\sprintf('Service "%s" must implement %s.', $id, MiddlewareInterface::class));
@@ -79,7 +80,7 @@ final class Kernel
         try {
             return ($this->chain)($request);
         } catch (\Throwable $e) { // a middleware itself failed
-            return $this->failure($request, $e);
+            return $this->errors->respond($request, $e);
         }
     }
 
@@ -95,13 +96,11 @@ final class Kernel
 
     private function dispatch(Request $request): Response
     {
-        $requestId = self::requestId($request);
-
         try {
             $this->matcher->getContext()->fromRequest($request);
             $controllerId = null;
             foreach ($this->matcher->matchRequest($request) as $key => $value) {
-                if ('_controller' === $key) {
+                if (Attributes::CONTROLLER === $key) {
                     $controllerId = $value;
                 }
                 $request->attributes->set((string) $key, $value);
@@ -115,35 +114,10 @@ final class Kernel
                 throw new \LogicException('Controller service is not invokable.');
             }
             $response = $controller($request);
-            if (!$response instanceof Response) {
-                throw new \LogicException('Controller must return a Response.');
-            }
 
-            return $response;
-        } catch (ResourceNotFoundException) {
-            return Problem::response(404, $requestId);
-        } catch (MethodNotAllowedException $e) {
-            return Problem::response(405, $requestId, headers: ['Allow' => implode(', ', $e->getAllowedMethods())]);
-        } catch (HttpException $e) {
-            return Problem::response($e->status, $requestId, $e->detail, $e->headers);
-        } catch (SuspiciousOperationException) { // e.g. a Host header outside TRUSTED_HOSTS
-            return Problem::response(400, $requestId);
+            return $response instanceof Response ? $response : throw new \LogicException('Controller must return a Response.');
         } catch (\Throwable $e) {
-            return $this->failure($request, $e);
+            return $this->errors->respond($request, $e);
         }
-    }
-
-    private function failure(Request $request, \Throwable $e): Response
-    {
-        $this->logger?->error('Unhandled exception', ['exception' => $e, 'request_id' => self::requestId($request)]);
-
-        return Problem::response(500, self::requestId($request), $this->debug ? $e::class . ': ' . $e->getMessage() : '');
-    }
-
-    private static function requestId(Request $request): ?string
-    {
-        $id = $request->attributes->get('request_id');
-
-        return \is_string($id) ? $id : null;
     }
 }

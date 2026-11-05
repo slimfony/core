@@ -28,7 +28,7 @@ final class WorkerSafetyTest extends TestCase
         };
 
         ob_start();
-        (new WorkerRunner($this->kernel(), $logger, $server, static fn(): Request => Request::create('/chatty')))->run();
+        new WorkerRunner($this->kernel(), $logger, $server, static fn(): Request => Request::create('/chatty'))->run();
         $output = (string) ob_get_clean();
 
         self::assertSame('ok', $output);
@@ -46,7 +46,7 @@ final class WorkerSafetyTest extends TestCase
         };
 
         ob_start();
-        (new WorkerRunner($this->kernel(), null, $server, static fn(): Request => Request::create('/count'), maxMemoryBytes: 1))->run();
+        new WorkerRunner($this->kernel(), null, $server, static fn(): Request => Request::create('/count'), maxMemoryBytes: 1)->run();
         ob_end_clean();
 
         self::assertSame(1, $handled);
@@ -57,7 +57,7 @@ final class WorkerSafetyTest extends TestCase
         self::assertFalse(\function_exists('frankenphp_handle_request'), 'this test is for plain CLI/FPM');
 
         ob_start();
-        (new WorkerRunner($this->kernel(), requestFactory: static fn(): Request => Request::create('/count')))->run();
+        new WorkerRunner($this->kernel(), requestFactory: static fn(): Request => Request::create('/count'))->run();
 
         self::assertSame('1', ob_get_clean());
     }

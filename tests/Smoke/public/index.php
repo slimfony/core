@@ -24,4 +24,4 @@ $kernel = new Kernel(
     synthetic: [RequestContext::class => $context, LoggerInterface::class => $logger],
 );
 
-(new WorkerRunner($kernel, $logger, maxRequests: $env->int('MAX_REQUESTS', 0)))->run();
+new WorkerRunner($kernel, $logger, maxRequests: $env->int('MAX_REQUESTS', 0))->run();

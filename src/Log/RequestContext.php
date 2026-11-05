@@ -7,14 +7,21 @@ namespace Slimfony\Core\Log;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
- * Correlation ids of the request being served. Set by RequestIdMiddleware, read by the logger,
+ * Correlation ids of the request being served. Started by RequestIdMiddleware, read by the logger,
  * cleared after every request by the StateResetter.
  */
 final class RequestContext implements ResetInterface
 {
-    public ?string $requestId = null;
-    public ?string $traceId = null;
+    public private(set) ?string $requestId = null;
+    public private(set) ?string $traceId = null;
 
+    public function start(string $requestId, string $traceId): void
+    {
+        $this->requestId = $requestId;
+        $this->traceId = $traceId;
+    }
+
+    #[\Override]
     public function reset(): void
     {
         $this->requestId = null;

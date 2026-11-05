@@ -15,6 +15,7 @@ final class ConnectionLifecycleMiddleware implements MiddlewareInterface
 {
     public function __construct(private readonly ConnectionLifecycle $lifecycle) {}
 
+    #[\Override]
     public function process(Request $request, \Closure $next): Response
     {
         $this->lifecycle->beginRequest();

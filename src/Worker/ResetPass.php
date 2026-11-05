@@ -16,8 +16,9 @@ use Symfony\Component\DependencyInjection\Reference;
  */
 final class ResetPass implements CompilerPassInterface
 {
-    public const TAG = 'kernel.reset';
+    public const string TAG = 'kernel.reset';
 
+    #[\Override]
     public function process(ContainerBuilder $container): void
     {
         $references = [];
