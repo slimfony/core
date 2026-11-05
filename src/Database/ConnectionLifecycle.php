@@ -6,6 +6,7 @@ namespace Slimfony\Core\Database;
 
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
+use Slimfony\Core\Observability\Counter;
 use Symfony\Contracts\Service\ResetInterface;
 
 /**
@@ -32,6 +33,7 @@ final class ConnectionLifecycle implements ResetInterface
         private readonly ?LoggerInterface $logger = null,
         private int $idleSeconds = 30 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('idleSeconds must not be negative.'); },
         ?\Closure $now = null,
+        private readonly ?Counter $leakedTransactions = null,
     ) {
         $this->now = $now ?? static fn(): float => microtime(true);
     }
@@ -49,6 +51,7 @@ final class ConnectionLifecycle implements ResetInterface
     {
         try {
             if ($this->connection->getTransactionNestingLevel() > 0) {
+                $this->leakedTransactions?->inc();
                 $this->logger?->error('Transaction left open at end of request; rolling back', [
                     'nesting_level' => $this->connection->getTransactionNestingLevel(),
                 ]);

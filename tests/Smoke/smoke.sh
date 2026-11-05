@@ -5,7 +5,8 @@ set -euo pipefail
 
 BASE=http://127.0.0.1:8080
 NAME=slimfony-smoke
-IMAGE=dunglas/frankenphp:1-php8.4
+IMAGE=slimfony-smoke:local
+METRICS_TOKEN=smoke-metrics-token-0123456789
 
 fail() { echo "SMOKE FAIL: $*" >&2; docker logs "$NAME" 2>&1 | tail -40 >&2 || true; exit 1; }
 
@@ -13,6 +14,7 @@ fail() { echo "SMOKE FAIL: $*" >&2; docker logs "$NAME" 2>&1 | tail -40 >&2 || t
 rm -rf tests/Smoke/cache
 php bin/slimfony warmup tests/Smoke/services.php tests/Smoke/routes.php tests/Smoke/cache
 
+docker build -q -t "$IMAGE" tests/Smoke >/dev/null # the official image plus the apcu extension
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 docker run -d --name "$NAME" -p 8080:8080 -v "$PWD":/app:ro "$IMAGE" \
   frankenphp run --config /app/tests/Smoke/Caddyfile >/dev/null
@@ -47,6 +49,18 @@ out=$(seq 1 3000 | xargs -P 20 -I{} bash -c 'req {}')
 badlines=$(grep -v '^1 200 smoke-req-[0-9]*$' <<<"$out" || true)
 [ -z "$badlines" ] || { echo "$badlines" | head -5 >&2; fail "counter state or status leaked between requests"; }
 [ "$(sort -u <<<"$out" | wc -l)" = 3000 ] || fail "request ids crossed between requests"
+
+echo "== health and metrics (shared across worker threads, surviving worker restarts)"
+[ "$(curl -s "$BASE/healthz")" = "ok" ] || fail "/healthz is not ok"
+[ "$(curl -s "$BASE/readyz")" = '{"status":"ok"}' ] || fail "/readyz is not ok"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$BASE/metrics")" = 401 ] || fail "/metrics must reject a request without the token"
+metrics=$(curl -s -H "Authorization: Bearer $METRICS_TOKEN" "$BASE/metrics")
+grep -q '^# TYPE http_requests_total counter' <<<"$metrics" || fail "no http_requests_total in /metrics"
+# 3000 concurrent /count requests were served by 2 workers that restarted every 500 requests: no increment may be lost
+grep -qF 'http_requests_total{method="GET",route="count",status="200"} 3000' <<<"$metrics" || { grep 'route="count"' <<<"$metrics" >&2; fail "request counter is not exactly 3000"; }
+grep -qF 'http_request_duration_seconds_count{method="GET",route="count"} 3000' <<<"$metrics" || fail "histogram count is not exactly 3000"
+grep -qF 'http_request_duration_seconds_bucket{method="GET",route="count",le="+Inf"} 3000' <<<"$metrics" || fail "histogram +Inf bucket is not exactly 3000"
+! grep -q 'smoke-req-' <<<"$metrics" || fail "a raw request value leaked into a metric label"
 
 echo "== memory plateau and worker restarts (5000 more requests)"
 mem() { for _ in $(seq 1 30); do curl -s "$BASE/info"; echo; done | sort -n | tail -1; }

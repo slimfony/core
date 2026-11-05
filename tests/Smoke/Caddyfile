@@ -5,6 +5,7 @@
 			file /app/tests/Smoke/public/index.php
 			num 2
 			env MAX_REQUESTS 500
+			env METRICS_TOKEN smoke-metrics-token-0123456789
 		}
 	}
 }

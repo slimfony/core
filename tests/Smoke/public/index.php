@@ -7,6 +7,8 @@ use Slimfony\Core\Config\Env;
 use Slimfony\Core\Kernel;
 use Slimfony\Core\Log\JsonStdoutLogger;
 use Slimfony\Core\Log\RequestContext;
+use Slimfony\Core\Observability\ApcuStorage;
+use Slimfony\Core\Observability\MetricsRegistry;
 use Slimfony\Core\Worker\WorkerRunner;
 
 require __DIR__ . '/../../../vendor/autoload.php';
@@ -14,6 +16,7 @@ require __DIR__ . '/../../../vendor/autoload.php';
 $env = Env::fromGlobals();
 $context = new RequestContext();
 $logger = new JsonStdoutLogger($env->string('LOG_LEVEL', 'info'), $context);
+$metrics = new MetricsRegistry(new ApcuStorage());
 
 $kernel = new Kernel(
     __DIR__ . '/../services.php',
@@ -21,7 +24,7 @@ $kernel = new Kernel(
     debug: $env->bool('APP_DEBUG'),
     logger: $logger,
     cacheDir: __DIR__ . '/../cache',
-    synthetic: [RequestContext::class => $context, LoggerInterface::class => $logger],
+    synthetic: [RequestContext::class => $context, LoggerInterface::class => $logger, MetricsRegistry::class => $metrics],
 );
 
 new WorkerRunner($kernel, $logger, maxRequests: $env->int('MAX_REQUESTS', 0))->run();
