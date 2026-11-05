@@ -41,10 +41,11 @@ final class TestDb
 
     /**
      * @param literal-string $sql
+     * @param list<int|string> $params
      */
-    public static function int(Connection $connection, string $sql): int
+    public static function int(Connection $connection, string $sql, array $params = []): int
     {
-        $value = $connection->fetchOne($sql);
+        $value = $connection->fetchOne($sql, $params);
 
         return \is_int($value) || \is_string($value) ? (int) $value : throw new \UnexpectedValueException('Expected an integer scalar.');
     }
