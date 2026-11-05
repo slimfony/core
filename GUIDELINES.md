@@ -9,7 +9,7 @@ Binding rules for every change. If a change breaks one, it needs a written reaso
 - Prefer, in order: PHP built-in -> already-installed package -> own code -> new package.
 - No polyfills (PHP >= 8.4). Required extensions are declared as `ext-*`.
 - No dependency for: logging (own PSR-3 JSON logger), UUID/request-id (`random_bytes`), JSON (`json_encode` + `JSON_THROW_ON_ERROR`), env/config (own `Env`), HTTP client, validation, serialization, cache abstraction.
-- Allowed runtime packages: `symfony/{http-foundation,routing,dependency-injection,service-contracts}`, `doctrine/dbal`, `psr/log`. Everything else is `suggest` or a separate package (`slimfony/auth-jwt`, ...).
+- Allowed runtime packages: `symfony/{http-foundation,routing,dependency-injection,service-contracts}`, `doctrine/dbal`, `psr/log`. An optional integration (JWT) lives in its own namespace and uses a package from `suggest`: it fails at boot with a `ConfigurationException` when the package is missing, and `tests/DeclaredDependenciesTest.php` makes sure nothing else uses it. Everything else is an application concern.
 - `composer audit` and `composer validate --strict` must pass in CI. A weekly workflow runs `composer outdated --direct --strict`; an outdated package is fixed in the next change, not ignored.
 
 ## 2. Speed
@@ -57,8 +57,8 @@ Binding rules for every change. If a change breaks one, it needs a written reaso
 | Health | Core (`/healthz`, `/readyz`) | k8s and on-prem LB friendly |
 | Config / secrets | Core (`Env`, `*_FILE`) | 12-factor, no YAML |
 | Request identity / tracing | Core (request-id, W3C `traceparent` propagation) | no OTel SDK |
-| AuthN / AuthZ | Core contract (`Authenticator`, `Principal`, `_public`, `_scopes`); JWT in `slimfony/auth-jwt` | verify-only resource server |
-| **Session** | **Not in core, by design** | services are stateless: identity travels in the token, state lives in the DB. Server-side sessions would break horizontal scaling and are a leak risk in worker mode. If ever needed: separate opt-in package with an explicit store. |
+| AuthN / AuthZ | Core (`Authenticator`, `Principal`, `AuthMiddleware`, `_public`, `_scopes`) and `Auth\Jwt` (verify-only JWT, optional `firebase/php-jwt`) | resource server: it never issues tokens |
+| **Session** | **Not in the core** | Services are stateless: identity travels in the token, state lives in the database. Server-side sessions would break horizontal scaling and are a leak risk in worker mode. |
 | Cache | APCu directly where needed (JWKS, readiness) | no PSR-6/16 layer until a real need appears |
 | Async / messaging | M2: transactional outbox + NATS | not the core's job; kernel is CLI-bootable for relays/consumers |
 | Outbound HTTP, validation, serialization | Application's choice | not core |

@@ -25,6 +25,7 @@
         "symfony/service-contracts": "^3.8"
     },
     "require-dev": {
+        "firebase/php-jwt": "^7.2",
         "friendsofphp/php-cs-fixer": "^3.95",
         "phpstan/phpstan": "^2.3",
         "phpstan/phpstan-phpunit": "^2.1",
@@ -34,7 +35,10 @@
     },
     "suggest": {
         "ext-apcu": "Default shared metrics storage across FrankenPHP worker threads",
-        "ext-pdo_pgsql": "PostgreSQL driver (recommended, tested in CI)"
+        "ext-openssl": "RSA and ECDSA JWT signatures",
+        "ext-pdo_pgsql": "PostgreSQL driver (recommended, tested in CI)",
+        "ext-sodium": "EdDSA JWT signatures",
+        "firebase/php-jwt": "Needed by Slimfony\\Core\\Auth\\Jwt (JwtAuthenticator, JwksKeyProvider)"
     },
     "autoload": {
         "psr-4": {

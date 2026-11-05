@@ -50,11 +50,24 @@ final class DeclaredDependenciesTest extends TestCase
         return array_keys($composer['require']);
     }
 
+    /**
+     * @return list<string> optional packages: usable only inside src/Auth/Jwt, which fails at boot without them
+     */
+    private static function optionalPackages(): array
+    {
+        $composer = json_decode((string) file_get_contents(self::ROOT . '/composer.json'), true, 32, \JSON_THROW_ON_ERROR);
+        self::assertIsArray($composer);
+        self::assertIsArray($composer['suggest'] ?? null);
+
+        return array_keys($composer['suggest']);
+    }
+
     public function testEverythingUnderSrcOnlyUsesDeclaredPackages(): void
     {
         $namespaces = self::installedNamespaces();
         uksort($namespaces, static fn(string $a, string $b): int => \strlen($b) <=> \strlen($a)); // longest prefix wins
         $declared = self::declaredPackages();
+        $optional = self::optionalPackages();
 
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(self::ROOT . '/src', \FilesystemIterator::SKIP_DOTS));
         foreach ($files as $file) {
@@ -75,7 +88,11 @@ final class DeclaredDependenciesTest extends TestCase
                     }
                 }
                 self::assertNotNull($package, \sprintf('%s (used in %s) does not belong to any installed package', $symbol, $file->getBasename()));
-                self::assertContains($package, $declared, \sprintf('%s uses %s from %s, which is not in composer.json "require"', $file->getBasename(), $symbol, $package));
+                $inOptionalModule = str_contains(str_replace('\\', '/', $file->getPathname()), '/src/Auth/Jwt/');
+                self::assertTrue(
+                    \in_array($package, $declared, true) || ($inOptionalModule && \in_array($package, $optional, true)),
+                    \sprintf('%s uses %s from %s, which is not in composer.json "require" (a "suggest" package may only be used under src/Auth/Jwt)', $file->getBasename(), $symbol, $package),
+                );
             }
         }
     }

@@ -15,7 +15,7 @@ A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is 
 ## Why
 
 - **Fast:** nothing is computed per request that can be done at build or boot (container, router, middleware chain).
-- **Small:** no YAML, no event dispatcher, no polyfills, PHP 8.4+. Runtime dependencies: `http-foundation`, `routing`, `dependency-injection`, `doctrine/dbal`, `psr/log`.
+- **Small:** no YAML, no event dispatcher, no polyfills, PHP 8.4+. Runtime dependencies: `http-foundation`, `routing`, `dependency-injection`, `doctrine/dbal`, `psr/log`. JWT verification additionally uses `firebase/php-jwt`, only when you use it.
 - **Secure by default:** no leaked errors, validated request ids, security headers, body size limit, nothing trusted until configured.
 - **Worker-safe:** services are reset after every request; if a reset fails the worker stops.
 
@@ -174,6 +174,7 @@ Workers then only `require` the dumped container and route table (shared by opca
 | `TRUSTED_PROXIES` | `Config\Trust` | Comma separated IPs/CIDRs of your ingress or load balancer. Without it `X-Forwarded-*` is ignored and the client IP is the ingress. |
 | `TRUSTED_HOSTS` | `Config\Trust` | Comma separated exact host names; any other `Host` gets a 400. |
 | `METRICS_TOKEN` | `MetricsController` | Bearer token for `/metrics`, at least 16 characters. |
+| `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_JWKS_URI` | `index.php` (JWT sample) | Expected `iss`, expected audience and the JWKS endpoint of the identity provider. |
 | `<NAME>_FILE` | `Config\Env` | For any `NAME`: read the value from this file (Docker/Kubernetes secrets). |
 
 Never put secret values into `services.php`: use `%env(NAME)%`, so the dumped cache only ever holds the placeholder.
@@ -273,32 +274,7 @@ $r->add('metrics', new Route('/metrics', ['_controller' => MetricsController::cl
 - The built-in series are `http_requests_total{method,route,status}` and `http_request_duration_seconds{method,route}` (sub-millisecond buckets). The route label is the route name, never the raw URL. Add your own with `$registry->counter(...)` and `$registry->histogram(...)` at boot; `ConnectionLifecycle` accepts a counter for `db_transactions_leaked_total`.
 ## Authentication
 
-The core defines the contract; verifying credentials is up to an `Authenticator` (a JWT verifier will ship as the separate, optional `slimfony/auth-jwt`; an identity header from a trusted gateway works too):
-
-```php
-<?php
-
-declare(strict_types=1);
-
-use Slimfony\Core\Auth\Authenticator;
-use Slimfony\Core\Auth\Principal;
-use Symfony\Component\HttpFoundation\Request;
-
-final class TokenAuthenticator implements Authenticator
-{
-    public function __construct(private readonly TokenVerifier $verifier) {} // your verifier: signature, issuer, audience, expiry
-
-    #[\Override]
-    public function authenticate(Request $request): ?Principal
-    {
-        $claims = $this->verifier->verify((string) $request->headers->get('Authorization')); // null when not valid
-
-        return null === $claims ? null : new Principal($claims['sub'], $claims['scopes'], $claims);
-    }
-}
-```
-
-Put `AuthMiddleware` in the chain (after `RequestIdMiddleware`) and register your authenticator as the `Authenticator` service. From then on **everything is denied by default**: a request without a valid caller gets 401, also on paths that match no route (so the API cannot be mapped by its 404s). Routes opt out or demand scopes through their defaults:
+An `Authenticator` turns a request into a `Principal` (the caller: subject, scopes, claims) or `null`. `AuthMiddleware` enforces it: put it in the chain (after `RequestIdMiddleware`) and register the authenticator as the `Authenticator` service. From then on **everything is denied by default**: a request without a valid caller gets 401, also on paths that match no route (so the API cannot be mapped by its 404s). Routes opt out or demand scopes through their defaults:
 
 ```php
 <?php
@@ -315,6 +291,49 @@ $r->add('orders', new Route('/orders', ['_controller' => OrdersController::class
 ```
 
 A caller that lacks any of the listed scopes gets 403. Controllers of protected routes read the caller with `Principal::from($request)`. Mark `/healthz`, `/readyz` and `/metrics` as `Attributes::PUBLIC` (the metrics controller has its own token or IP protection).
+
+### JWT bearer tokens
+
+`JwtAuthenticator` verifies `Authorization: Bearer <JWT>` as a resource server; it never issues tokens. It uses `firebase/php-jwt` (`composer require firebase/php-jwt`) with `ext-openssl` (RS256/384/512, ES256/384) or `ext-sodium` (EdDSA). Without the package it fails at boot with a `ConfigurationException`. Build it in `public/index.php` and hand it over as the synthetic `Authenticator` service:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Psr\Log\LoggerInterface;
+use Slimfony\Core\Auth\Authenticator;
+use Slimfony\Core\Auth\Jwt\JwksKeyProvider;
+use Slimfony\Core\Auth\Jwt\JwtAuthenticator;
+use Slimfony\Core\Auth\Jwt\JwtConfiguration;
+use Slimfony\Core\Config\Env;
+
+$env = Env::fromGlobals();
+
+$authenticator = new JwtAuthenticator(
+    new JwtConfiguration($env->string('JWT_ISSUER'), $env->string('JWT_AUDIENCE')),
+    new JwksKeyProvider($env->string('JWT_JWKS_URI'), $logger),
+    $logger,
+);
+
+// Kernel synthetic services: Authenticator::class => $authenticator
+```
+
+A token is accepted only if all of this holds:
+
+- Its algorithm is on the allow-list (`RS256`, `ES256`, `EdDSA` by default; shared-secret algorithms and `none` cannot be configured) and equals the algorithm of the key named by its `kid`.
+- The signature verifies, `iss` equals the issuer, the audience is among `aud`, `sub` is present, `exp` is present and not past and `nbf` is not in the future (30 seconds of leeway by default).
+
+Anything else is a 401 without a reason. Scopes come from the space separated `scope` claim and the `scp` array.
+
+Keys come from a `KeyProvider`:
+
+- `JwksKeyProvider` reads the identity provider's JWKS endpoint (https only, 3 second timeout, 256 KiB limit). The document is shared between workers in APCu (needs `ext-apcu`); every worker keeps the parsed keys in memory. An unknown `kid` triggers a refetch, at most once per 30 seconds, so random key ids cannot make the service hammer the provider. If the provider is down, the keys already loaded keep working.
+- `StaticKeyProvider` holds fixed keys, for example a PEM from a secret file: `new StaticKeyProvider(['key-1' => new Key($pem, 'RS256')])` with `Firebase\JWT\Key`.
+
+A signature check is the most expensive thing a request does (see Performance). A token that verified successfully is remembered by its hash for 30 seconds (`cacheSeconds`), never beyond its own `exp`, so repeated calls with the same token cost a hash and a lookup. A token revoked at the identity provider therefore stays usable for at most that long; `cacheSeconds: 0` verifies every request. Only successes are remembered, so invalid tokens cannot fill the cache.
+
+Any other scheme, for example an identity header set by a trusted gateway, is an `Authenticator` too: return a `Principal`, or `null` when the caller is not authenticated.
 ## What is in the box
 
 | Component | What it does |
@@ -327,13 +346,13 @@ A caller that lacks any of the listed scopes gets 403. Controllers of protected 
 | `Config\Env`, `Config\Trust` | Typed environment access with `NAME_FILE` secrets; trusted proxies and hosts. |
 | `Observability\*` | Counters and histograms in shared APCu memory, Prometheus text format, protected `/metrics`, `MetricsMiddleware`. |
 | `Health\*` | `/healthz` and `/readyz` controllers and the `ReadinessCheck` interface. |
-| `Auth\*` | `Authenticator` contract, `Principal`, `AuthMiddleware`: deny by default, `_public` and `_scopes` route defaults. |
+| `Auth\*` | `Authenticator` contract, `Principal`, `AuthMiddleware` (deny by default, `_public` and `_scopes` route defaults), and `Auth\Jwt\*`: verification of bearer JWTs. |
 | `Database\*` | Connection factory, lifecycle (leaked transactions, idle connections), bounded retries. |
 
 ## Worker mode pitfalls
 
 - Request-scoped state belongs in a service implementing `Symfony\Contracts\Service\ResetInterface` (register it with `setAutoconfigured(true)`), never in `static` properties. The reset runs after every request.
-- There are no server-side sessions, by design: a service stays stateless and identity travels in the token.
+- The core keeps no server-side sessions: a service stays stateless and identity travels in the token.
 - Chunked bodies without `Content-Length` are not caught by `BodySizeLimitMiddleware`; limit them at the edge (Caddy `request_body max_size`).
 - Keep the number of worker threads times the number of pods below your PostgreSQL `max_connections` (or put PgBouncer in front).
 
@@ -352,9 +371,8 @@ Measured on a Windows 11 development machine, PHP 8.4 with opcache and JIT (like
 That is roughly 25 times below the 1 ms goal at p95; on the Linux CI runner the p95 is 19–22 µs. Without opcache (the CLI default) the same run gives a p95 of 50–110 µs. Numbers depend on the machine; this is the overhead of the core, not an end-to-end throughput claim. End-to-end load tests with k6 belong to the demo.
 ## Roadmap
 
-1. Optional `slimfony/auth-jwt` (verify-only JWT `Authenticator`).
-2. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
-3. Async: transactional outbox and NATS integration, shown in the demo.
+1. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
+2. Async: transactional outbox and NATS integration, shown in the demo.
 
 ## Development
 
