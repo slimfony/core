@@ -67,6 +67,6 @@
         "symfony/polyfill-php84": "*"
     },
     "support": {
-        "issues": "https://github.com/er2es/slimfony/issues"
+        "issues": "https://github.com/slimfony/core/issues"
     }
 }
