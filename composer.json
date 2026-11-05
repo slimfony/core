@@ -42,7 +42,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Slimfony\\Core\\Tests\\": "tests/"
+            "Slimfony\\Core\\Tests\\": "tests/",
+            "Slimfony\\Core\\Benchmarks\\": "benchmarks/"
         }
     },
     "config": {
@@ -57,7 +58,8 @@
             "@test",
             "@stan",
             "@cs"
-        ]
+        ],
+        "bench": "php -d opcache.enable_cli=1 -d opcache.jit=tracing -d opcache.jit_buffer_size=64M -d apc.enable_cli=1 benchmarks/run.php"
     },
     "replace": {
         "symfony/polyfill-ctype": "*",

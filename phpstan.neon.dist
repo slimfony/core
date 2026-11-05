@@ -3,5 +3,5 @@ includes:
     - vendor/phpstan/phpstan-phpunit/extension.neon
 parameters:
     level: max
-    paths: [src, tests]
+    paths: [src, tests, benchmarks]
     tmpDir: .phpstan.cache

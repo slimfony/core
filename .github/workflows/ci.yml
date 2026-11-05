@@ -68,3 +68,16 @@ jobs:
       - run: composer update --no-interaction --prefer-dist
       - name: FrankenPHP worker smoke test
         run: bash tests/Smoke/smoke.sh
+
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: apcu
+          coverage: none
+      - run: composer update --no-interaction --prefer-dist
+      - name: Core latency (p95 must stay below 1 ms; the table goes to the job summary)
+        run: composer bench -- --max-p95-us=1000

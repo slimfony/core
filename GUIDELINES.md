@@ -16,7 +16,7 @@ Binding rules for every change. If a change breaks one, it needs a written reaso
 - Nothing is computed per request that can be computed at build/boot: container and router are dumped by `bin/slimfony warmup`, middleware chain is built once.
 - No reflection, no autowiring, no event dispatching on the hot path. Controllers: constructor injection + `__invoke(Request): Response`.
 - No I/O per request that is not the request's job: no ping, no config file reads, no network calls for keys/config (cache with TTL in APCu).
-- Every hot-path change is checked with phpbench; the p95 < 1 ms claim must stay true.
+- Every hot-path change is checked with `composer bench`; the p95 < 1 ms claim must stay true (CI enforces it).
 
 ## 3. Security (secure by default)
 - `APP_DEBUG` defaults to false and comes only from env. Non-debug errors: generic `problem+json` + request id, never messages, traces, DSNs or SQL.
