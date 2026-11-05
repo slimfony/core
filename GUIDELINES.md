@@ -24,6 +24,8 @@ Binding rules for every change. If a change breaks one, it needs a written reaso
 - Auth is deny-by-default once an `Authenticator` is configured; public routes opt out with `_public`.
 - `/metrics` is off unless a token or CIDR allowlist is configured. Health endpoints expose no internals.
 - No `unserialize`, `eval`, `extract`, `$$var`, `@` suppression, `shell_exec`.
+- Types: every parameter, return and property has a native type; no `mixed` unless the value is genuinely opaque (and then narrowed at once). External input (query, body, headers, env, DB rows) is treated as `mixed` and narrowed with a strict typed accessor before use; no implicit casts, no loose `==`.
+- SQL: always bound parameters (`:name` / `?` with explicit DBAL types); never string concatenation or interpolation of values. Our own DB helpers take `literal-string` SQL, so PHPStan max rejects dynamic SQL at analysis time. Dynamic identifiers (table, column, ORDER BY) only from a hard-coded allowlist.
 
 ## 4. Worker mode (no state leaks)
 - No mutable `static`, no globals, no singletons outside the container. Request-scoped state lives in `Request->attributes` or in a service implementing `ResetInterface`.
