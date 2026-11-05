@@ -1,0 +1,9 @@
+/plan.md
+/docs/
+/vendor/
+/composer.lock
+/.php-cs-fixer.cache
+/.phpunit.cache/
+/.phpbench/
+/.idea/
+/.vscode/
