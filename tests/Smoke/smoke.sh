@@ -27,8 +27,14 @@ forged=$(curl -si -H 'X-Request-Id: bad id' "$BASE/ping" | grep -i '^x-request-i
 [ "$forged" != "bad id" ] && [ -n "$forged" ] || fail "forged request id was not replaced"
 
 echo "== state isolation under concurrency (3000 requests, 20 parallel)"
-out=$(seq 1 3000 | xargs -P 20 -I{} curl -s -H "X-Request-Id: smoke-req-{}" -w ' %{http_code} %header{x-request-id}\n' "$BASE/count")
-[ "$(grep -c '^1 200 smoke-req-[0-9]*$' <<<"$out")" = 3000 ] || fail "counter state or status leaked between requests"
+# one printf per request: curl writes body and -w output separately, parallel curls would interleave lines
+req() { printf '%s
+' "$(curl -s -H "X-Request-Id: smoke-req-$1" -w ' %{http_code} %header{x-request-id}' "$BASE/count")"; }
+export -f req
+export BASE
+out=$(seq 1 3000 | xargs -P 20 -I{} bash -c 'req {}')
+badlines=$(grep -v '^1 200 smoke-req-[0-9]*$' <<<"$out" || true)
+[ -z "$badlines" ] || { echo "$badlines" | head -5 >&2; fail "counter state or status leaked between requests"; }
 [ "$(sort -u <<<"$out" | wc -l)" = 3000 ] || fail "request ids crossed between requests"
 
 echo "== memory plateau and worker restarts (5000 more requests)"
