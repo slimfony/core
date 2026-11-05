@@ -33,8 +33,7 @@
     },
     "suggest": {
         "ext-apcu": "Default shared metrics storage across FrankenPHP worker threads",
-        "ext-pdo_pgsql": "PostgreSQL driver for the Database component",
-        "monolog/monolog": "JSON logging to stdout (implements ResetInterface)"
+        "ext-pdo_pgsql": "PostgreSQL driver (recommended, tested in CI)"
     },
     "autoload": {
         "psr-4": {
@@ -66,5 +65,8 @@
         "symfony/polyfill-php80": "*",
         "symfony/polyfill-php81": "*",
         "symfony/polyfill-php84": "*"
+    },
+    "support": {
+        "issues": "https://github.com/slimfony/core/issues"
     }
 }

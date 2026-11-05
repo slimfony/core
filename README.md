@@ -8,7 +8,7 @@ Ultra-lightweight, secure, Symfony-component based microservice core for **Frank
 
 - Minimal per-request overhead, no state leaking between requests.
 - No YAML: configuration is plain PHP arrays/closures.
-- Small supply chain: `http-foundation`, `routing`, `dependency-injection`, `dbal`, `psr/log`.
+- Small supply chain: see [GUIDELINES.md](GUIDELINES.md) (rules, and what the core handles: DB, logging, metrics, health, auth contract; sessions deliberately not).
 
 ## Roadmap
 
