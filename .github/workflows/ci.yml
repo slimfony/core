@@ -17,6 +17,7 @@ jobs:
         php: ['8.4', '8.5']
         deps: [highest]
         include:
+          # lowest: only the tests (dev tools at their lowest versions are noise)
           - php: '8.4'
             deps: lowest
     services:
@@ -48,6 +49,6 @@ jobs:
           path: ${{ steps.cc.outputs.dir }}
           key: composer-${{ matrix.php }}-${{ matrix.deps }}-${{ hashFiles('composer.json') }}
       - run: composer validate --strict
-      - run: composer update --no-interaction --prefer-dist --prefer-${{ matrix.deps }}
+      - run: composer update --no-interaction --prefer-dist ${{ matrix.deps == 'lowest' && '--prefer-lowest' || '' }}
       - run: composer audit
-      - run: composer ci
+      - run: composer ${{ matrix.deps == 'lowest' && 'test' || 'ci' }}
