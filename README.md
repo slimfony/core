@@ -11,7 +11,7 @@
 
 A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is built from a few Symfony components, compiled once at build time, and keeps no state between requests.
 
-> **Status:** v0.1, pre-1.0. Only classes marked `@api` are covered by SemVer, and even those may still change before 1.0.
+> **Status:** v0.3.0, pre-1.0. Only classes marked `@api` are covered by SemVer, and even those may still change before 1.0.
 
 ## Why
 
