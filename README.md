@@ -1,5 +1,10 @@
 # slimfony/core
 
+[![CI](https://github.com/slimfony/core/actions/workflows/ci.yml/badge.svg)](https://github.com/slimfony/core/actions/workflows/ci.yml)
+[![PHP](https://img.shields.io/badge/PHP-8.4%2B-777BB4?logo=php&logoColor=white)](composer.json)
+[![Symfony](https://img.shields.io/badge/Symfony-8.1-000000?logo=symfony&logoColor=white)](https://symfony.com/releases/8.1)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 A small, strict core for PHP microservices running on **FrankenPHP worker mode**. It is built from a handful of Symfony components, compiled once at boot, and leaks no state between requests.
 
 > **Status:** pre-alpha. The API may still change.
