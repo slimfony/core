@@ -3,12 +3,14 @@
 Binding rules for every change. If a change breaks one, it needs a written reason in the PR.
 
 ## 1. Dependencies (slim vendor)
+- **Deployment model:** slimfony/core is the base of our own microservices, not a shared library for third-party apps. Each service owns its whole dependency tree and commits its own `composer.lock`. So there is no compatibility matrix: only PHP >= 8.4 and the **latest stable** release of every package (runtime and dev). Constraints are floors at the current release (`^MAJOR.MINOR` of what is installed). When choosing a constraint, check `composer outdated` / the package page; never copy versions from memory or old plans.
+- `composer.lock` is not committed here (CI always resolves the newest); services commit theirs and carry the polyfill `replace` block.
 - A new package in `require` needs a justification in the PR: what it does, why ~50 lines of our own code or a PHP built-in do not.
 - Prefer, in order: PHP built-in -> already-installed package -> own code -> new package.
 - No polyfills (PHP >= 8.4). Required extensions are declared as `ext-*`.
 - No dependency for: logging (own PSR-3 JSON logger), UUID/request-id (`random_bytes`), JSON (`json_encode` + `JSON_THROW_ON_ERROR`), env/config (own `Env`), HTTP client, validation, serialization, cache abstraction.
 - Allowed runtime packages: `symfony/{http-foundation,routing,dependency-injection,service-contracts}`, `doctrine/dbal`, `psr/log`. Everything else is `suggest` or a separate package (`slimfony/auth-jwt`, ...).
-- `composer audit` and `composer validate --strict` must pass in CI.
+- `composer audit` and `composer validate --strict` must pass in CI. A weekly workflow runs `composer outdated --direct --strict`; an outdated package is fixed in the next change, not ignored.
 
 ## 2. Speed
 - Nothing is computed per request that can be computed at build/boot: container and router are dumped by `bin/slimfony warmup`, middleware chain is built once.

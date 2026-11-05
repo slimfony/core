@@ -15,7 +15,7 @@ Rules and the scope of the core are in [GUIDELINES.md](GUIDELINES.md).
 
 ## Quickstart
 
-Install: `composer require slimfony/core` (not on Packagist yet).
+Install into your own service: `composer require slimfony/core` (not on Packagist yet). It is the base of a service, not a library for arbitrary apps: PHP 8.4+, newest Symfony/DBAL only, and the service commits its own `composer.lock`.
 
 `config/services.php`
 
