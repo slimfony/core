@@ -56,6 +56,6 @@ jobs:
         with:
           php-version: '8.4'
           coverage: none
-      - run: composer update --no-interaction --prefer-dist --no-dev
+      - run: composer update --no-interaction --prefer-dist
       - name: FrankenPHP worker smoke test
         run: bash tests/Smoke/smoke.sh

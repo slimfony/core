@@ -84,9 +84,10 @@ Without FrankenPHP the runner serves a single request, so the same file works as
 ## Roadmap
 
 1. Build-time warmup (`bin/slimfony warmup`: dumped container and router).
-2. Database lifecycle (DBAL, transaction-leak rollback, retry, PgBouncer-safe).
-3. Prometheus metrics, `/healthz` and `/readyz`, JSON logger, env/`*_FILE` config.
-4. Auth contract, then an optional `slimfony/auth-jwt`.
+2. Prometheus metrics, `/healthz` and `/readyz`, JSON logger, env/`*_FILE` config.
+3. Auth contract, then an optional `slimfony/auth-jwt`.
+4. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
+5. Async: transactional outbox and NATS integration, shown in the demo.
 
 ## Development
 
