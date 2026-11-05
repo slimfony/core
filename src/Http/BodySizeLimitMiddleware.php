@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class BodySizeLimitMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly int $maxBytes = 1_048_576) {}
+    public function __construct(private int $maxBytes = 1_048_576 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('maxBytes must not be negative.'); }) {}
 
     #[\Override]
     public function process(Request $request, \Closure $next): Response

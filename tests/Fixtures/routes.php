@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 use Slimfony\Core\Tests\Fixtures\Boom;
 use Slimfony\Core\Tests\Fixtures\Chatty;
-use Slimfony\Core\Tests\Fixtures\NotAResponse;
 use Slimfony\Core\Tests\Fixtures\Count;
-use Slimfony\Core\Tests\Fixtures\UseBroken;
 use Slimfony\Core\Tests\Fixtures\Gone;
 use Slimfony\Core\Tests\Fixtures\Hello;
+use Slimfony\Core\Tests\Fixtures\NotAResponse;
+use Slimfony\Core\Tests\Fixtures\UseBroken;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 

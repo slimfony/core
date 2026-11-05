@@ -25,7 +25,7 @@ final class ProblemResponse extends Response
         }
 
         parent::__construct(
-            json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            json_encode($body, \JSON_THROW_ON_ERROR | \JSON_UNESCAPED_SLASHES),
             $status,
             ['Content-Type' => 'application/problem+json'] + $headers,
         );

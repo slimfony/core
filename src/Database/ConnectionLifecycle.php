@@ -28,7 +28,7 @@ final class ConnectionLifecycle implements ResetInterface
     public function __construct(
         private readonly Connection $connection,
         private readonly ?LoggerInterface $logger = null,
-        private readonly int $idleSeconds = 30,
+        private int $idleSeconds = 30 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('idleSeconds must not be negative.'); },
         ?\Closure $now = null,
     ) {
         $this->now = $now ?? static fn(): float => microtime(true);

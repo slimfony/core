@@ -52,6 +52,17 @@ final class ArchitectureTest extends TestCase
         }
     }
 
+    public function testEveryClassConstantHasANativeType(): void
+    {
+        foreach (self::sourceClasses() as $name) {
+            foreach (new \ReflectionClass($name)->getReflectionConstants() as $constant) {
+                if ($constant->getDeclaringClass()->getName() === $name) {
+                    self::assertTrue($constant->hasType(), \sprintf('%s::%s needs a native type (PHP 8.3 typed constants)', $name, $constant->getName()));
+                }
+            }
+        }
+    }
+
     public function testEveryMethodThatImplementsOrOverridesIsMarkedWithOverride(): void
     {
         foreach (self::sourceClasses() as $name) {
@@ -62,7 +73,7 @@ final class ArchitectureTest extends TestCase
                 }
                 $parent = $class->getParentClass();
                 $inherited = (false !== $parent && $parent->hasMethod($method->getName()))
-                    || array_filter($class->getInterfaces(), static fn(\ReflectionClass $i): bool => $i->hasMethod($method->getName())) !== [];
+                    || [] !== array_filter($class->getInterfaces(), static fn(\ReflectionClass $i): bool => $i->hasMethod($method->getName()));
                 if ($inherited) {
                     self::assertNotEmpty($method->getAttributes(\Override::class), \sprintf('%s::%s() needs #[\Override]', $name, $method->getName()));
                 }

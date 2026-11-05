@@ -23,7 +23,7 @@ final class KernelTest extends TestCase
     private static function problem(Response $response): array
     {
         self::assertSame('application/problem+json', $response->headers->get('Content-Type'));
-        $body = json_decode((string) $response->getContent(), true, 8, JSON_THROW_ON_ERROR);
+        $body = json_decode((string) $response->getContent(), true, 8, \JSON_THROW_ON_ERROR);
         self::assertIsArray($body);
 
         return $body;

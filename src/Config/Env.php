@@ -52,7 +52,7 @@ final class Env
             return $default ?? throw new \RuntimeException(\sprintf('Missing required environment variable %s.', $name));
         }
 
-        $value = filter_var($raw, FILTER_VALIDATE_INT);
+        $value = filter_var($raw, \FILTER_VALIDATE_INT);
 
         return \is_int($value) ? $value : throw new \RuntimeException(\sprintf('%s must be an integer.', $name));
     }

@@ -34,9 +34,9 @@ final class WorkerRunner
         private readonly ?LoggerInterface $logger = null,
         ?\Closure $handleRequest = null,
         ?\Closure $requestFactory = null,
-        private readonly int $maxRequests = 0,
-        private readonly int $gcEvery = 0,
-        private readonly int $maxMemoryBytes = 0,
+        private int $maxRequests = 0 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('maxRequests must not be negative.'); },
+        private int $gcEvery = 0 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('gcEvery must not be negative.'); },
+        private int $maxMemoryBytes = 0 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('maxMemoryBytes must not be negative.'); },
     ) {
         $this->handleRequest = $handleRequest ?? (\function_exists('frankenphp_handle_request')
             ? \Closure::fromCallable('frankenphp_handle_request')

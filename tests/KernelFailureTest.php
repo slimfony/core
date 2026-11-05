@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 /** What must happen when the application or its configuration is broken. */
 final class KernelFailureTest extends TestCase
 {
-    private const FIXTURES = __DIR__ . '/Fixtures';
+    private const string FIXTURES = __DIR__ . '/Fixtures';
 
     public function testControllerThatDoesNotReturnAResponseIsA500WithoutLeak(): void
     {

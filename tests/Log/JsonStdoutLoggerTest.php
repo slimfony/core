@@ -23,7 +23,7 @@ final class JsonStdoutLoggerTest extends TestCase
     {
         self::assertArrayHasKey($index, $lines);
         self::assertStringEndsWith("\n", $lines[$index]);
-        $record = json_decode($lines[$index], true, 16, JSON_THROW_ON_ERROR);
+        $record = json_decode($lines[$index], true, 16, \JSON_THROW_ON_ERROR);
         self::assertIsArray($record);
 
         return $record;

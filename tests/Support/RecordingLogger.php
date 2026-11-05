@@ -13,6 +13,6 @@ final class RecordingLogger extends AbstractLogger
 
     public function log(mixed $level, string|\Stringable $message, array $context = []): void
     {
-        $this->records[] = (is_string($level) ? $level : 'unknown') . ': ' . $message;
+        $this->records[] = (\is_string($level) ? $level : 'unknown') . ': ' . $message;
     }
 }

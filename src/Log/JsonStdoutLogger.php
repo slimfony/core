@@ -65,7 +65,7 @@ final class JsonStdoutLogger extends AbstractLogger
         }
 
         try {
-            $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_PARTIAL_OUTPUT_ON_ERROR);
+            $line = json_encode($record, \JSON_UNESCAPED_SLASHES | \JSON_INVALID_UTF8_SUBSTITUTE | \JSON_PARTIAL_OUTPUT_ON_ERROR);
             ($this->sink)((false === $line ? '{"level":"error","message":"log record could not be encoded"}' : $line) . "\n");
         } catch (\Throwable) {
             // a broken log pipe must never break the request

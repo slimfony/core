@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 
 final class WarmupTest extends TestCase
 {
-    private const FIXTURES = __DIR__ . '/Fixtures';
+    private const string FIXTURES = __DIR__ . '/Fixtures';
 
     private string $cacheDir;
 

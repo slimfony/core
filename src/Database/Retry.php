@@ -30,7 +30,7 @@ final class Retry
     public function __construct(
         private readonly Connection $connection,
         private readonly ?LoggerInterface $logger = null,
-        private readonly int $maxAttempts = 3,
+        private int $maxAttempts = 3 { set => $value >= 1 ? $value : throw new \InvalidArgumentException('maxAttempts must be at least 1.'); },
         ?\Closure $sleep = null,
     ) {
         $this->sleep = $sleep ?? usleep(...);
