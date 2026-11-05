@@ -70,13 +70,16 @@ final class ConsumerRunner
 
     private function stopOnSignals(): void
     {
-        if (!\function_exists('pcntl_async_signals') || !\function_exists('pcntl_signal') || !\defined('SIGTERM') || !\defined('SIGINT')) {
+        if (!\function_exists('pcntl_async_signals') || !\function_exists('pcntl_signal')) {
             return;
         }
 
         pcntl_async_signals(true);
-        foreach ([SIGTERM, SIGINT] as $signal) {
-            pcntl_signal($signal, $this->stop(...));
+        foreach (['SIGTERM', 'SIGINT'] as $name) { // by name: the constants exist only where pcntl does
+            $signal = \defined($name) ? \constant($name) : null;
+            if (\is_int($signal)) {
+                pcntl_signal($signal, $this->stop(...));
+            }
         }
     }
 }
