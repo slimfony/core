@@ -12,5 +12,8 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - `Config\Env` (typed, `NAME_FILE` secrets) and `Config\Trust` (trusted proxies and hosts).
 - `Log\JsonStdoutLogger` with request correlation and secret redaction.
 - Database: `ConnectionFactory`, `ConnectionLifecycle` (leaked transactions, idle connections), `Retry`.
+- Observability: `MetricsRegistry` with boot-time declared `Counter`/`Histogram`, `ApcuStorage`, `MetricsMiddleware`, protected `MetricsController` (Prometheus text format).
+- Health: `LivenessController` (`/healthz`), `ReadinessController` (`/readyz`, cached), `ReadinessCheck`, `DatabaseReadinessCheck`.
+- `ConnectionLifecycle` can count leaked transactions (`db_transactions_leaked_total`).
 - Exception hierarchy: `SlimfonyException`, `ConfigurationException`, `BuildException`, `HttpException`.
 - CI: PHP 8.4 and 8.5, real PostgreSQL, FrankenPHP worker smoke test, Codecov, weekly outdated check.
