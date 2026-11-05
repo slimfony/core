@@ -1,0 +1,15 @@
+{
+	admin off
+	frankenphp {
+		worker {
+			file /app/tests/Smoke/public/index.php
+			num 2
+			env MAX_REQUESTS 500
+		}
+	}
+}
+
+:8080 {
+	root * /app/tests/Smoke/public
+	php_server
+}

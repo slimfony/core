@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Black-box check of the core inside a real FrankenPHP worker (2 workers, MAX_REQUESTS=500).
+# Run from the repo root after `composer install`: tests/Smoke/smoke.sh
+set -euo pipefail
+
+BASE=http://127.0.0.1:8080
+NAME=slimfony-smoke
+IMAGE=dunglas/frankenphp:1-php8.4
+
+fail() { echo "SMOKE FAIL: $*" >&2; docker logs "$NAME" 2>&1 | tail -40 >&2 || true; exit 1; }
+
+docker rm -f "$NAME" >/dev/null 2>&1 || true
+docker run -d --name "$NAME" -p 8080:8080 -v "$PWD":/app:ro "$IMAGE" \
+  frankenphp run --config /app/tests/Smoke/Caddyfile >/dev/null
+
+for _ in $(seq 1 40); do curl -fs "$BASE/ping" >/dev/null 2>&1 && break; sleep 0.5; done
+[ "$(curl -s "$BASE/ping")" = "pong" ] || fail "/ping did not answer pong"
+
+echo "== headers, errors, request id hardening"
+headers=$(curl -si "$BASE/ping")
+grep -qi '^x-content-type-options: nosniff' <<<"$headers" || fail "security headers missing"
+grep -qi '^x-request-id: ' <<<"$headers" || fail "request id missing"
+notfound=$(curl -si "$BASE/nope")
+grep -q '^HTTP/.* 404' <<<"$notfound" || fail "expected 404"
+grep -qi '^content-type: application/problem+json' <<<"$notfound" || fail "404 is not problem+json"
+forged=$(curl -si -H 'X-Request-Id: bad id' "$BASE/ping" | grep -i '^x-request-id:' | tr -d '\r' | cut -d' ' -f2)
+[ "$forged" != "bad id" ] && [ -n "$forged" ] || fail "forged request id was not replaced"
+
+echo "== state isolation under concurrency (3000 requests, 20 parallel)"
+out=$(seq 1 3000 | xargs -P 20 -I{} curl -s -H "X-Request-Id: smoke-req-{}" -w ' %{http_code} %header{x-request-id}\n' "$BASE/count")
+[ "$(grep -c '^1 200 smoke-req-[0-9]*$' <<<"$out")" = 3000 ] || fail "counter state or status leaked between requests"
+[ "$(sort -u <<<"$out" | wc -l)" = 3000 ] || fail "request ids crossed between requests"
+
+echo "== memory plateau and worker restarts (5000 more requests)"
+mem() { for _ in $(seq 1 30); do curl -s "$BASE/info"; echo; done | sort -n | tail -1; }
+before=$(mem)
+bad=$(seq 1 5000 | xargs -P 20 -I{} curl -s -o /dev/null -w '%{http_code}\n' "$BASE/ping" | grep -vc '^200$' || true)
+[ "$bad" = 0 ] || fail "$bad non-200 responses while workers were restarting"
+after=$(mem)
+echo "max worker memory: before=$before after=$after"
+[ $((after - before)) -le 4194304 ] || fail "memory grew by more than 4 MiB"
+
+echo "== logs and graceful stop"
+if docker logs "$NAME" 2>&1 | grep -E 'SMOKE-LOG (error|critical|warning)|PHP (Fatal|Warning)|Stack trace|"level":"(error|critical)"'; then
+  fail "errors in container logs"
+fi
+docker stop -t 20 "$NAME" >/dev/null
+[ "$(docker inspect -f '{{.State.ExitCode}}' "$NAME")" = 0 ] || fail "container did not stop cleanly"
+docker rm "$NAME" >/dev/null
+
+echo "SMOKE OK"
