@@ -4,6 +4,10 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-05
+
+First tagged release: the foundation of the core. Pre-1.0: only classes marked `@api` are covered by SemVer, and they may still change.
+
 ### Added
 - `Kernel`: compiled router and container, middleware chain, `application/problem+json` errors (400, 404, 405, 413, 500), synthetic services.
 - Middleware: `RequestIdMiddleware` (request id and trace id), `SecurityHeadersMiddleware`, `BodySizeLimitMiddleware`.
@@ -19,3 +23,5 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - `composer bench`: per-request latency percentiles of the core; CI enforces p95 < 1 ms.
 - Exception hierarchy: `SlimfonyException`, `ConfigurationException`, `BuildException`, `HttpException`.
 - CI: PHP 8.4 and 8.5, real PostgreSQL, FrankenPHP worker smoke test, Codecov, weekly outdated check.
+- Quality gates: PHPStan level max, php-cs-fixer (PER-CS and PHP 8.4 risky sets), architecture tests (strict_types, final, `#[\Override]`, typed constants, `@api`/`@internal`, declared dependencies only), random-order tests, executable README samples.
+- Supply chain: GitHub Actions pinned to commit SHAs, Dependabot, weekly outdated-dependency check, `composer audit` in CI.

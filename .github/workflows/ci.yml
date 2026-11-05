@@ -28,9 +28,8 @@ jobs:
     env:
       TEST_DATABASE_URL: pdo-pgsql://postgres:postgres@127.0.0.1:5432/slimfony_test
     steps:
-      # ponytail: pin actions to commit SHAs before v0.1.0 (supply chain)
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.php }}
           extensions: apcu, ctype, mbstring, pdo_pgsql, pdo_sqlite
@@ -39,7 +38,7 @@ jobs:
       - name: Composer cache dir
         id: cc
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ steps.cc.outputs.dir }}
           key: composer-${{ matrix.php }}-${{ hashFiles('composer.json') }}
@@ -50,7 +49,7 @@ jobs:
       - name: Coverage (informational, no threshold)
         if: matrix.php == '8.4'
         run: vendor/bin/phpunit --coverage-clover coverage.xml
-      - uses: codecov/codecov-action@v5
+      - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         if: matrix.php == '8.4'
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -60,8 +59,8 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: '8.4'
           coverage: none
@@ -72,8 +71,8 @@ jobs:
   bench:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: '8.4'
           extensions: apcu
