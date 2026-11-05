@@ -337,7 +337,7 @@ A caller that lacks any of the listed scopes gets 403. Controllers of protected 
 
 ## Performance
 
-`composer bench` measures what the core itself adds to a request: `Kernel::handle()` with a typical production chain (metrics in APCu, request id, security headers, body limit, authentication), one request at a time, as latency percentiles. It excludes HTTP parsing and the network (Caddy/FrankenPHP) and your own application code. CI fails if any scenario's p95 exceeds 1 ms, and prints the table in the job summary.
+`composer bench` measures what the core itself adds to a request: `Kernel::handle()` with a typical production chain (metrics in APCu, request id, security headers, body limit, authentication), one request at a time, as latency percentiles. It excludes HTTP parsing and the network (Caddy/FrankenPHP) and your own application code. The goal is a p95 below 1 ms; CI enforces a much stricter regression guard (p95 below 250 µs, more than ten times the measured value on the CI runner) and prints the table in the job summary.
 
 Measured on a Windows 11 development machine, PHP 8.4 with opcache and JIT (like a FrankenPHP worker), 30 000 requests per scenario:
 
@@ -347,7 +347,7 @@ Measured on a Windows 11 development machine, PHP 8.4 with opcache and JIT (like
 | `GET /hello/{name}` (authenticated, scope check, JSON response) | 31.3 | 40.3 | 73.7 |
 | `GET /unknown` (404 through the chain) | 34.1 | 77.9 | 167.7 |
 
-That is roughly 25 times below the 1 ms goal at p95. Without opcache (the CLI default) the same run gives a p95 of 50–110 µs. Numbers depend on the machine; this is the overhead of the core, not an end-to-end throughput claim. End-to-end load tests with k6 belong to the demo.
+That is roughly 25 times below the 1 ms goal at p95; on the Linux CI runner the p95 is 19–22 µs. Without opcache (the CLI default) the same run gives a p95 of 50–110 µs. Numbers depend on the machine; this is the overhead of the core, not an end-to-end throughput claim. End-to-end load tests with k6 belong to the demo.
 ## Roadmap
 
 1. Optional `slimfony/auth-jwt` (verify-only JWT `Authenticator`).

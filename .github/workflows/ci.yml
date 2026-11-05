@@ -78,5 +78,5 @@ jobs:
           extensions: apcu
           coverage: none
       - run: composer update --no-interaction --prefer-dist
-      - name: Core latency (p95 must stay below 1 ms; the table goes to the job summary)
-        run: composer bench -- --max-p95-us=1000
+      - name: Core latency (regression guard: p95 below 250 µs; the table goes to the job summary)
+        run: composer bench -- --max-p95-us=250
