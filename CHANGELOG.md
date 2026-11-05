@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+- Logo, avatar and social preview image (`assets/`).
+
 ## [0.1.0] - 2026-11-05
 
 First tagged release: the foundation of the core. Pre-1.0: only classes marked `@api` are covered by SemVer, and they may still change.

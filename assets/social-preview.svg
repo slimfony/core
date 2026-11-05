@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <rect width="1280" height="640" fill="#0B1220"/>
+  <!-- the mark, large and cropped at the right edge -->
+  <g transform="translate(860 64) scale(1.0)">
+    <path d="M368 148H202A54 54 0 0 0 202 256H310A54 54 0 0 1 310 364H144" fill="none" stroke="#162033" stroke-width="40" stroke-linecap="round" stroke-linejoin="round" transform="translate(-60 40) scale(1.1)"/>
+  </g>
+  <g transform="translate(96 120) scale(0.5)">
+    <rect width="512" height="512" rx="112" fill="#111B2E"/>
+    <path d="M368 148H202A54 54 0 0 0 202 256H310A54 54 0 0 1 310 364H144" fill="none" stroke="#F1F5F9" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="368" cy="148" r="21" fill="#2DD4BF"/>
+  </g>
+  <text x="96" y="470" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="92" font-weight="700" fill="#F1F5F9">slimfony<tspan fill="#2DD4BF">/core</tspan></text>
+  <text x="96" y="530" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="36" fill="#94A3B8">Ultra-lightweight, secure microservice core for FrankenPHP</text>
+  <text x="96" y="586" font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="28" fill="#64748B">PHP 8.4 · Symfony 8.1 · ~20 µs core overhead per request</text>
+</svg>

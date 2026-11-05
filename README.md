@@ -1,3 +1,5 @@
+<img src="assets/logo.svg" alt="slimfony logo" width="96" align="right">
+
 # slimfony/core
 
 [![CI](https://github.com/slimfony/core/actions/workflows/ci.yml/badge.svg)](https://github.com/slimfony/core/actions/workflows/ci.yml)
