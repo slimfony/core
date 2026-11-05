@@ -8,6 +8,8 @@ use Psr\Log\LoggerInterface;
 use Slimfony\Core\Exception\HttpException;
 use Slimfony\Core\Http\MiddlewareInterface;
 use Slimfony\Core\Http\Problem;
+use Slimfony\Core\Worker\ResetPass;
+use Slimfony\Core\Worker\StateResetter;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,6 +19,7 @@ use Symfony\Component\Routing\Matcher\CompiledUrlMatcher;
 use Symfony\Component\Routing\Matcher\Dumper\CompiledUrlMatcherDumper;
 use Symfony\Component\Routing\RequestContext;
 use Symfony\Component\Routing\RouteCollection;
+use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Boots once (container compile, router compile, middleware chain), then handles requests.
@@ -41,6 +44,8 @@ final class Kernel
     ) {
         $container = new ContainerBuilder();
         $container->setResourceTracking(false);
+        $container->registerForAutoconfiguration(ResetInterface::class)->addTag(ResetPass::TAG);
+        $container->addCompilerPass(new ResetPass());
         self::load($servicesFile)($container);
 
         $routes = new RouteCollection();
@@ -88,6 +93,16 @@ final class Kernel
         } catch (\Throwable $e) { // a middleware itself failed
             return $this->failure($request, $e);
         }
+    }
+
+    /**
+     * Resets request-scoped services. Call after every request; a throw means the worker state is unknown.
+     */
+    public function reset(): void
+    {
+        $resetter = $this->container->get(StateResetter::class);
+        $resetter instanceof StateResetter || throw new \LogicException('StateResetter service missing.');
+        $resetter->reset();
     }
 
     private function dispatch(Request $request): Response
