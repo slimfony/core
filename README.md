@@ -2,6 +2,7 @@
 
 # slimfony/core
 
+[![Packagist](https://img.shields.io/packagist/v/slimfony/core.svg)](https://packagist.org/packages/slimfony/core)
 [![CI](https://github.com/slimfony/core/actions/workflows/ci.yml/badge.svg)](https://github.com/slimfony/core/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/slimfony/core/graph/badge.svg)](https://codecov.io/gh/slimfony/core)
 [![PHP](https://img.shields.io/badge/PHP-8.4%2B-777BB4?logo=php&logoColor=white)](composer.json)
@@ -23,18 +24,19 @@ It is the base for our own services, not a library for arbitrary apps: every ser
 
 ## Quickstart
 
-Not on Packagist yet; install from GitHub. In your service's `composer.json`:
+Install it into your service:
+
+```
+composer require slimfony/core
+```
+
+and map your application namespace in the service's `composer.json`:
 
 ```json
 {
-    "repositories": [{ "type": "vcs", "url": "https://github.com/slimfony/core" }],
-    "minimum-stability": "dev",
-    "prefer-stable": true,
-    "require": { "slimfony/core": "dev-main" },
     "autoload": { "psr-4": { "App\\": "src/" } }
 }
 ```
-
 `src/Hello.php` is a controller: an invokable service.
 
 ```php
