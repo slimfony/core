@@ -33,8 +33,9 @@ Binding rules for every change. If a change breaks one, it needs a written reaso
 
 ## 5. Code quality
 - `declare(strict_types=1)`, `final` by default, `readonly` where possible, interfaces only at external boundaries (storage, authenticator, clock-like seams) - no interface with one implementation otherwise.
-- PHPStan level 9 + strict rules without baseline; PER-CS via php-cs-fixer.
-- Tests: behaviour, not implementation. Anything touching DB or APCu runs against the real thing in CI (PostgreSQL service, APCu enabled); SQLite / in-memory doubles are for fast local runs only.
+- PHPStan `level: max` + strict rules, no baseline; PER-CS via php-cs-fixer.
+- Tests: few, real, deterministic. No coverage target. Every test pins a concrete business or security behaviour (e.g. a leaked transaction is rolled back, a failed reset kills the worker, 404 label is `unmatched`); no getter/constructor/mock-echo tests, no sleeps, no timing assertions, no test-order or network dependence. A flaky test is deleted or fixed the same day, never retried.
+- Anything touching DB or APCu runs against the real thing in CI (PostgreSQL service, APCu enabled); SQLite / in-memory doubles are for fast local runs only.
 - Public API changes are recorded in `CHANGELOG.md`; SemVer.
 
 ## Capabilities: what a microservice needs and what handles it
