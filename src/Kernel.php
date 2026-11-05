@@ -37,6 +37,9 @@ final class Kernel
     /**
      * @param string|null $cacheDir directory written by Compiler::warmup() / `bin/slimfony warmup`. Used when it holds a
      *                              complete cache and $debug is false; otherwise the config is compiled at boot.
+     * @param array<string, object> $synthetic objects created before the container (logger, request context, config)
+     *                                         that services need. Declare them in services.php with
+     *                                         `->setSynthetic(true)->setPublic(true)`.
      */
     public function __construct(
         string $servicesFile,
@@ -44,6 +47,7 @@ final class Kernel
         private readonly bool $debug = false,
         private readonly ?LoggerInterface $logger = null,
         ?string $cacheDir = null,
+        array $synthetic = [],
     ) {
         $built = null !== $cacheDir && !$debug ? Compiler::fromCache($cacheDir) : null;
         if (null !== $cacheDir && !$debug && null === $built) {
@@ -51,10 +55,13 @@ final class Kernel
         }
         [$container, $compiledRoutes] = $built ?? Compiler::compile($servicesFile, $routesFile);
 
+        foreach ($synthetic as $id => $service) {
+            $container->set($id, $service);
+        }
         $this->container = $container;
         $this->matcher = new CompiledUrlMatcher($compiledRoutes, new RequestContext());
 
-        $middlewareIds = Compiler::middlewareIds($container->hasParameter('slimfony.middleware') ? $container->getParameter('slimfony.middleware') : []);
+        $middlewareIds = Compiler::middlewareIds($container->getParameter('slimfony.middleware'));
         $chain = $this->dispatch(...);
         foreach (array_reverse($middlewareIds) as $id) {
             $middleware = $container->get($id);

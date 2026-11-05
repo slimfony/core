@@ -43,7 +43,11 @@ final class Compiler
             $container->getDefinition($id)->setPublic(true);
         }
 
-        $ids = self::middlewareIds($container->hasParameter('slimfony.middleware') ? $container->getParameter('slimfony.middleware') : []);
+        // always present: a dumped container without any parameter cannot answer getParameter() at all
+        if (!$container->hasParameter('slimfony.middleware')) {
+            $container->setParameter('slimfony.middleware', []);
+        }
+        $ids = self::middlewareIds($container->getParameter('slimfony.middleware'));
         foreach ($ids as $id) {
             $container->getDefinition($id)->setPublic(true);
         }

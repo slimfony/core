@@ -30,6 +30,13 @@ grep -qi '^content-type: application/problem+json' <<<"$notfound" || fail "404 i
 forged=$(curl -si -H 'X-Request-Id: bad id' "$BASE/ping" | grep -i '^x-request-id:' | tr -d '\r' | cut -d' ' -f2)
 [ "$forged" != "bad id" ] && [ -n "$forged" ] || fail "forged request id was not replaced"
 
+echo "== structured logs on real stdout"
+curl -s -H 'X-Request-Id: smoke-log-0001' "$BASE/log" >/dev/null
+logline=$(docker logs "$NAME" 2>&1 | grep '"message":"smoke log line"' | head -1)
+[ -n "$logline" ] || fail "no JSON log line on stdout"
+grep -q '"request_id":"smoke-log-0001"' <<<"$logline" || fail "log line is not tagged with the request id"
+if grep -q 'must-not-appear' <<<"$logline"; then fail "a secret reached the log"; fi
+
 echo "== state isolation under concurrency (3000 requests, 20 parallel)"
 # one printf per request: curl writes body and -w output separately, parallel curls would interleave lines
 req() { printf '%s
@@ -51,7 +58,7 @@ echo "max worker memory: before=$before after=$after"
 [ $((after - before)) -le 4194304 ] || fail "memory grew by more than 4 MiB"
 
 echo "== logs and graceful stop"
-if docker logs "$NAME" 2>&1 | grep -E 'SMOKE-LOG (error|critical|warning)|PHP (Fatal|Warning)|Stack trace|"level":"(error|critical)"'; then
+if docker logs "$NAME" 2>&1 | grep -E '"level":"(warning|error|critical)"|PHP (Fatal|Warning)|Stack trace|"level":"(error|critical)"'; then
   fail "errors in container logs"
 fi
 docker stop -t 20 "$NAME" >/dev/null

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Slimfony\Core\Http;
 
+use Slimfony\Core\Log\RequestContext;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -13,6 +14,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class RequestIdMiddleware implements MiddlewareInterface
 {
+    public function __construct(private readonly ?RequestContext $context = null) {}
+
     public function process(Request $request, \Closure $next): Response
     {
         $id = $request->headers->get('X-Request-Id');
@@ -26,6 +29,10 @@ final class RequestIdMiddleware implements MiddlewareInterface
 
         $request->attributes->set('request_id', $requestId);
         $request->attributes->set('trace_id', $traceId);
+        if (null !== $this->context) { // lets the logger tag every line of this request
+            $this->context->requestId = $requestId;
+            $this->context->traceId = $traceId;
+        }
 
         $response = $next($request);
         $response->headers->set('X-Request-Id', $requestId);
