@@ -16,6 +16,6 @@ $logger = new class extends AbstractLogger {
     }
 };
 
-$kernel = new Kernel(__DIR__ . '/../services.php', __DIR__ . '/../routes.php', false, $logger);
+$kernel = new Kernel(__DIR__ . '/../services.php', __DIR__ . '/../routes.php', false, $logger, __DIR__ . '/../cache');
 
 (new WorkerRunner($kernel, $logger, maxRequests: (int) getenv('MAX_REQUESTS')))->run();

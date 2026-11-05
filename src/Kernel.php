@@ -6,20 +6,17 @@ namespace Slimfony\Core;
 
 use Psr\Log\LoggerInterface;
 use Slimfony\Core\Exception\HttpException;
+use Slimfony\Core\Build\Compiler;
 use Slimfony\Core\Http\MiddlewareInterface;
 use Slimfony\Core\Http\Problem;
-use Slimfony\Core\Worker\ResetPass;
 use Slimfony\Core\Worker\StateResetter;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 use Symfony\Component\Routing\Matcher\CompiledUrlMatcher;
-use Symfony\Component\Routing\Matcher\Dumper\CompiledUrlMatcherDumper;
 use Symfony\Component\Routing\RequestContext;
-use Symfony\Component\Routing\RouteCollection;
-use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Boots once (container compile, router compile, middleware chain), then handles requests.
@@ -31,49 +28,32 @@ use Symfony\Contracts\Service\ResetInterface;
  */
 final class Kernel
 {
-    private readonly ContainerBuilder $container;
+    private readonly ContainerInterface $container;
     private readonly CompiledUrlMatcher $matcher;
     /** @var \Closure(Request): Response */
     private readonly \Closure $chain;
 
+    /**
+     * @param string|null $cacheDir directory written by Compiler::warmup() / `bin/slimfony warmup`. Used when it holds a
+     *                              complete cache and $debug is false; otherwise the config is compiled at boot.
+     */
     public function __construct(
         string $servicesFile,
         string $routesFile,
         private readonly bool $debug = false,
         private readonly ?LoggerInterface $logger = null,
+        ?string $cacheDir = null,
     ) {
-        $container = new ContainerBuilder();
-        $container->setResourceTracking(false);
-        $container->registerForAutoconfiguration(ResetInterface::class)->addTag(ResetPass::TAG);
-        $container->addCompilerPass(new ResetPass());
-        self::load($servicesFile)($container);
-
-        $routes = new RouteCollection();
-        self::load($routesFile)($routes);
-
-        foreach ($routes as $route) {
-            $id = $route->getDefault('_controller');
-            if (!\is_string($id)) {
-                throw new \LogicException('Every route needs a string "_controller" service id.');
-            }
-            $container->getDefinition($id)->setPublic(true);
+        $built = null !== $cacheDir && !$debug ? Compiler::fromCache($cacheDir) : null;
+        if (null !== $cacheDir && !$debug && null === $built) {
+            $logger?->warning('No compiled cache found; compiling at boot. Run `bin/slimfony warmup` at build time.');
         }
+        [$container, $compiledRoutes] = $built ?? Compiler::compile($servicesFile, $routesFile);
 
-        $middlewareIds = $container->hasParameter('slimfony.middleware') ? $container->getParameter('slimfony.middleware') : [];
-        if (!\is_array($middlewareIds) || !array_is_list($middlewareIds)) {
-            throw new \LogicException('Parameter "slimfony.middleware" must be a list of service ids.');
-        }
-        foreach ($middlewareIds as $id) {
-            if (!\is_string($id)) {
-                throw new \LogicException('Parameter "slimfony.middleware" must be a list of service ids.');
-            }
-            $container->getDefinition($id)->setPublic(true);
-        }
-
-        $container->compile();
         $this->container = $container;
-        $this->matcher = new CompiledUrlMatcher((new CompiledUrlMatcherDumper($routes))->getCompiledRoutes(), new RequestContext());
+        $this->matcher = new CompiledUrlMatcher($compiledRoutes, new RequestContext());
 
+        $middlewareIds = Compiler::middlewareIds($container->hasParameter('slimfony.middleware') ? $container->getParameter('slimfony.middleware') : []);
         $chain = $this->dispatch(...);
         foreach (array_reverse($middlewareIds) as $id) {
             $middleware = $container->get($id);
@@ -155,18 +135,5 @@ final class Kernel
         $id = $request->attributes->get('request_id');
 
         return \is_string($id) ? $id : null;
-    }
-
-    /**
-     * @return \Closure(object): void
-     */
-    private static function load(string $file): \Closure
-    {
-        $loaded = require $file;
-        if (!$loaded instanceof \Closure) {
-            throw new \LogicException(\sprintf('"%s" must return a Closure.', $file));
-        }
-
-        return $loaded;
     }
 }

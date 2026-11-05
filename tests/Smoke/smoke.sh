@@ -9,6 +9,10 @@ IMAGE=dunglas/frankenphp:1-php8.4
 
 fail() { echo "SMOKE FAIL: $*" >&2; docker logs "$NAME" 2>&1 | tail -40 >&2 || true; exit 1; }
 
+# build-time step: compile container + router once; the workers only require() the result
+rm -rf tests/Smoke/cache
+php bin/slimfony warmup tests/Smoke/services.php tests/Smoke/routes.php tests/Smoke/cache
+
 docker rm -f "$NAME" >/dev/null 2>&1 || true
 docker run -d --name "$NAME" -p 8080:8080 -v "$PWD":/app:ro "$IMAGE" \
   frankenphp run --config /app/tests/Smoke/Caddyfile >/dev/null

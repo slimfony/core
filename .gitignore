@@ -7,3 +7,4 @@
 /.phpbench/
 /.idea/
 /.vscode/
+/tests/Smoke/cache/

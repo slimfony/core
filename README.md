@@ -72,6 +72,14 @@ $kernel = new Slimfony\Core\Kernel(__DIR__ . '/../config/services.php', __DIR__ 
 
 Without FrankenPHP the runner serves a single request, so the same file works as a classic front controller.
 
+**Production:** compile once at image build time, not in every worker:
+
+```
+vendor/bin/slimfony warmup config/services.php config/routes.php var/cache
+```
+
+and pass `cacheDir: __DIR__ . '/../var/cache'` as the last `Kernel` argument. Workers then only `require` the dumped container and route table (shared by opcache). A broken configuration fails the warmup, so it never ships. Without a cache (or with `debug: true`) the Kernel compiles at boot, which is fine for development and tests.
+
 ## What is in the box
 
 | Component | What it does |
@@ -79,6 +87,7 @@ Without FrankenPHP the runner serves a single request, so the same file works as
 | `Kernel` | Boots once, routes, runs controllers, turns errors into `application/problem+json` (404, 405 with `Allow`, 413, 500). |
 | `Http\*Middleware` | `RequestId` (request id + trace id, forged values replaced), `SecurityHeaders`, `BodySizeLimit`. |
 | `Worker\WorkerRunner` | The worker loop: max requests, memory limit, optional GC, fail-fast on reset errors. |
+| `Build\Compiler` | Warmup: dumps the compiled container and route table at build time (`bin/slimfony warmup`). |
 | `Worker\StateResetter` | Resets every service implementing `ResetInterface` that was used during the request. |
 
 ## Worker mode pitfalls
@@ -89,11 +98,10 @@ Without FrankenPHP the runner serves a single request, so the same file works as
 
 ## Roadmap
 
-1. Build-time warmup (`bin/slimfony warmup`: dumped container and router).
-2. Prometheus metrics, `/healthz` and `/readyz`, JSON logger, env/`*_FILE` config.
-3. Auth contract, then an optional `slimfony/auth-jwt`.
-4. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
-5. Async: transactional outbox and NATS integration, shown in the demo.
+1. Prometheus metrics, `/healthz` and `/readyz`, JSON logger, env/`*_FILE` config.
+2. Auth contract, then an optional `slimfony/auth-jwt`.
+3. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
+4. Async: transactional outbox and NATS integration, shown in the demo.
 
 ## Development
 

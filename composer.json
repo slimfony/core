@@ -68,5 +68,8 @@
     },
     "support": {
         "issues": "https://github.com/slimfony/core/issues"
-    }
+    },
+    "bin": [
+        "bin/slimfony"
+    ]
 }
