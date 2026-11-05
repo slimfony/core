@@ -14,7 +14,7 @@
     "minimum-stability": "stable",
     "prefer-stable": true,
     "require": {
-        "doctrine/dbal": "^4.0",
+        "doctrine/dbal": "^4.3",
         "ext-ctype": "*",
         "ext-mbstring": "*",
         "php": "^8.4",
