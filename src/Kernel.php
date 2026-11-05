@@ -11,6 +11,7 @@ use Slimfony\Core\Http\MiddlewareInterface;
 use Slimfony\Core\Http\Problem;
 use Slimfony\Core\Worker\StateResetter;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\Exception\SuspiciousOperationException;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
@@ -118,6 +119,8 @@ final class Kernel
             return Problem::response(405, $requestId, headers: ['Allow' => implode(', ', $e->getAllowedMethods())]);
         } catch (HttpException $e) {
             return Problem::response($e->status, $requestId, $e->detail, $e->headers);
+        } catch (SuspiciousOperationException) { // e.g. a Host header outside TRUSTED_HOSTS
+            return Problem::response(400, $requestId);
         } catch (\Throwable $e) {
             return $this->failure($request, $e);
         }

@@ -65,9 +65,20 @@ final class Hello
 ```php
 require __DIR__ . '/../vendor/autoload.php';
 
-$kernel = new Slimfony\Core\Kernel(__DIR__ . '/../config/services.php', __DIR__ . '/../config/routes.php');
+use Slimfony\Core\Config\{Env, Trust};
+use Slimfony\Core\Kernel;
+use Slimfony\Core\Worker\WorkerRunner;
 
-(new Slimfony\Core\Worker\WorkerRunner($kernel, maxRequests: (int) getenv('MAX_REQUESTS')))->run();
+$env = Env::fromGlobals();
+Trust::apply($env); // TRUSTED_PROXIES / TRUSTED_HOSTS, nothing trusted by default
+
+$kernel = new Kernel(
+    __DIR__ . '/../config/services.php',
+    __DIR__ . '/../config/routes.php',
+    debug: $env->bool('APP_DEBUG'), // false unless set
+);
+
+(new WorkerRunner($kernel, maxRequests: $env->int('MAX_REQUESTS', 0)))->run();
 ```
 
 Without FrankenPHP the runner serves a single request, so the same file works as a classic front controller.
@@ -88,6 +99,7 @@ and pass `cacheDir: __DIR__ . '/../var/cache'` as the last `Kernel` argument. Wo
 | `Http\*Middleware` | `RequestId` (request id + trace id, forged values replaced), `SecurityHeaders`, `BodySizeLimit`. |
 | `Worker\WorkerRunner` | The worker loop: max requests, memory limit, optional GC, fail-fast on reset errors. |
 | `Build\Compiler` | Warmup: dumps the compiled container and route table at build time (`bin/slimfony warmup`). |
+| `Config\Env`, `Config\Trust` | Typed env access with `NAME_FILE` secret files; trusted proxies and hosts (secure defaults). |
 | `Worker\StateResetter` | Resets every service implementing `ResetInterface` that was used during the request. |
 
 ## Worker mode pitfalls
@@ -98,7 +110,7 @@ and pass `cacheDir: __DIR__ . '/../var/cache'` as the last `Kernel` argument. Wo
 
 ## Roadmap
 
-1. Prometheus metrics, `/healthz` and `/readyz`, JSON logger, env/`*_FILE` config.
+1. Prometheus metrics, `/healthz` and `/readyz`, JSON logger.
 2. Auth contract, then an optional `slimfony/auth-jwt`.
 3. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
 4. Async: transactional outbox and NATS integration, shown in the demo.
