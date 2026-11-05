@@ -35,7 +35,7 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: apcu, ctype, mbstring, pdo_pgsql, pdo_sqlite
           ini-values: apc.enable_cli=1
-          coverage: none
+          coverage: ${{ matrix.php == '8.4' && 'pcov' || 'none' }}
       - name: Composer cache dir
         id: cc
         run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
@@ -47,6 +47,15 @@ jobs:
       - run: composer update --no-interaction --prefer-dist
       - run: composer audit
       - run: composer ci
+      - name: Coverage (informational, no threshold)
+        if: matrix.php == '8.4'
+        run: vendor/bin/phpunit --coverage-clover coverage.xml
+      - uses: codecov/codecov-action@v5
+        if: matrix.php == '8.4'
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false
 
   smoke:
     runs-on: ubuntu-latest

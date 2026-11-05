@@ -3,6 +3,7 @@
 /.github export-ignore
 /.gitattributes export-ignore
 /.gitignore export-ignore
+/codecov.yml export-ignore
 /.editorconfig export-ignore
 /GUIDELINES.md export-ignore
 /phpstan.neon.dist export-ignore
