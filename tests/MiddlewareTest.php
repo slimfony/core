@@ -34,19 +34,30 @@ final class MiddlewareTest extends TestCase
 
     public function testTraceIdComesOnlyFromAValidNonZeroTraceparent(): void
     {
-        $middleware = new RequestIdMiddleware();
-        $trace = null;
-        $next = static function (Request $r) use (&$trace): Response {
-            $trace = $r->attributes->get('trace_id');
+        self::assertSame(
+            '4bf92f3577b34da6a3ce929d0e0e4736',
+            self::traceIdFor('00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01'),
+        );
+        self::assertMatchesRegularExpression(
+            '/^(?!0{32})[0-9a-f]{32}$/D',
+            self::traceIdFor('00-00000000000000000000000000000000-00f067aa0ba902b7-01'),
+        );
+    }
 
-            return new Response();
-        };
+    private static function traceIdFor(string $traceparent): string
+    {
+        $trace = '';
+        (new RequestIdMiddleware())->process(
+            Request::create('/', server: ['HTTP_TRACEPARENT' => $traceparent]),
+            static function (Request $r) use (&$trace): Response {
+                $id = $r->attributes->get('trace_id');
+                $trace = \is_string($id) ? $id : '';
 
-        $middleware->process(Request::create('/', server: ['HTTP_TRACEPARENT' => '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01']), $next);
-        self::assertSame('4bf92f3577b34da6a3ce929d0e0e4736', $trace);
+                return new Response();
+            },
+        );
 
-        $middleware->process(Request::create('/', server: ['HTTP_TRACEPARENT' => '00-00000000000000000000000000000000-00f067aa0ba902b7-01']), $next);
-        self::assertNotSame('00000000000000000000000000000000', $trace);
+        return $trace;
     }
 
     public function testOversizedBodyIsRejectedBeforeTheApplicationRuns(): void
