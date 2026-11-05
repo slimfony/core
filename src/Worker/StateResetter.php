@@ -8,6 +8,8 @@ use Symfony\Contracts\Service\ResetInterface;
 
 /**
  * Resets every service that was actually used during the request (see ResetPass).
+ *
+ * @internal
  */
 final class StateResetter
 {

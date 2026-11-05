@@ -7,8 +7,10 @@ namespace Slimfony\Core\Exception;
 /**
  * Thrown by application code to produce a specific HTTP error response.
  * $detail is client-facing: never put internals in it.
+ *
+ * @api
  */
-final class HttpException extends \RuntimeException
+final class HttpException extends \RuntimeException implements SlimfonyException
 {
     /**
      * @param array<string, string> $headers

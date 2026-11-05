@@ -10,6 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Calls ConnectionLifecycle::beginRequest() (idle-connection check) at the start of each request.
+ *
+ * @api
  */
 final class ConnectionLifecycleMiddleware implements MiddlewareInterface
 {

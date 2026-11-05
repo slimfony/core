@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Slimfony\Core\Build;
 
+use Slimfony\Core\Exception\ConfigurationException;
 use Slimfony\Core\Http\Attributes;
 use Slimfony\Core\Worker\ResetPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
@@ -17,6 +18,8 @@ use Symfony\Contracts\Service\ResetInterface;
  *
  * services.php: returns Closure(ContainerBuilder): void.
  * routes.php:   returns Closure(RouteCollection): void; every route's '_controller' is a service id.
+ *
+ * @internal
  */
 final class ContainerCompiler
 {
@@ -39,7 +42,7 @@ final class ContainerCompiler
         foreach ($routes as $route) {
             $id = $route->getDefault(Attributes::CONTROLLER);
             if (!\is_string($id)) {
-                throw new \LogicException(\sprintf('Every route needs a string "%s" service id.', Attributes::CONTROLLER));
+                throw new ConfigurationException(\sprintf('Every route needs a string "%s" service id.', Attributes::CONTROLLER));
             }
             $container->getDefinition($id)->setPublic(true);
         }
@@ -64,7 +67,7 @@ final class ContainerCompiler
     {
         $loaded = require $file;
         if (!$loaded instanceof \Closure) {
-            throw new \LogicException(\sprintf('"%s" must return a Closure.', $file));
+            throw new ConfigurationException(\sprintf('"%s" must return a Closure.', $file));
         }
 
         return $loaded;

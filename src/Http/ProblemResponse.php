@@ -8,6 +8,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * RFC 9457 problem+json response. $detail is client-facing: never put internals in it.
+ *
+ * @api
  */
 final class ProblemResponse extends Response
 {

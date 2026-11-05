@@ -13,6 +13,8 @@ use Symfony\Component\DependencyInjection\Reference;
 /**
  * Collects services tagged "kernel.reset" (autoconfigured for ResetInterface) into the StateResetter.
  * IGNORE_ON_UNINITIALIZED_REFERENCE: a lazy service that was never used is neither created nor reset.
+ *
+ * @internal
  */
 final class ResetPass implements CompilerPassInterface
 {

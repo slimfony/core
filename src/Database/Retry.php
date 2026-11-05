@@ -18,6 +18,8 @@ use Psr\Log\LoggerInterface;
  *   COMMIT may or may not have committed.
  *
  * Inside an already open transaction nothing is retried: the outermost owner decides.
+ *
+ * @api
  */
 final class Retry
 {

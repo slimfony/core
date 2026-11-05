@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Slimfony\Core\Config;
 
+use Slimfony\Core\Exception\ConfigurationException;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -13,6 +14,8 @@ use Symfony\Component\HttpFoundation\Request;
  *   TRUSTED_HOSTS    comma separated exact host names (e.g. api.example.com); other Host headers get a 400
  *
  * apply() is the one place that writes Symfony's static request state. Call it once, before the worker loop.
+ *
+ * @api
  */
 final class Trust
 {
@@ -21,7 +24,7 @@ final class Trust
     public function apply(): void
     {
         if (Request::getHttpMethodParameterOverride()) {
-            throw new \LogicException('HTTP method parameter override must stay disabled.');
+            throw new ConfigurationException('HTTP method parameter override must stay disabled.');
         }
 
         Request::setTrustedProxies(

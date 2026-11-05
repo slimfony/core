@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\Request;
  * Without FrankenPHP it serves exactly one request, so it works as a plain front controller too.
  *
  * Signals are not handled here: FrankenPHP/Caddy own SIGTERM and make the handler function return false.
+ *
+ * @api
  */
 final class WorkerRunner
 {

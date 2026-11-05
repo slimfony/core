@@ -13,6 +13,8 @@ use Psr\Log\LogLevel;
  * - request_id / trace_id are added automatically while a request is being served (see RequestContext).
  * - Context goes through ContextSanitizer: no secrets, no trace arguments.
  * - It never throws: logging must not be able to break a request.
+ *
+ * @api
  */
 final class JsonStdoutLogger extends AbstractLogger
 {

@@ -10,6 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Cheap 413 on a declared Content-Length. Bodies without Content-Length (chunked) are not covered here:
  * enforce those at the edge (Caddy `request_body { max_size ... }`).
+ *
+ * @api
  */
 final class BodySizeLimitMiddleware implements MiddlewareInterface
 {

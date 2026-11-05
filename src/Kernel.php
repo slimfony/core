@@ -7,6 +7,7 @@ namespace Slimfony\Core;
 use Psr\Log\LoggerInterface;
 use Slimfony\Core\Build\CompilationCache;
 use Slimfony\Core\Build\ContainerCompiler;
+use Slimfony\Core\Exception\ConfigurationException;
 use Slimfony\Core\Http\Attributes;
 use Slimfony\Core\Http\ErrorResponder;
 use Slimfony\Core\Http\MiddlewareInterface;
@@ -22,6 +23,8 @@ use Symfony\Component\Routing\RequestContext;
  * responses (see ErrorResponder), also when they come from a middleware.
  *
  * Configuration files and their contract: see ContainerCompiler.
+ *
+ * @api
  */
 final class Kernel
 {
@@ -67,7 +70,7 @@ final class Kernel
         foreach (array_reverse($compilation->middlewareIds()) as $id) {
             $middleware = $container->get($id);
             if (!$middleware instanceof MiddlewareInterface) {
-                throw new \LogicException(\sprintf('Service "%s" must implement %s.', $id, MiddlewareInterface::class));
+                throw new ConfigurationException(\sprintf('Service "%s" must implement %s.', $id, MiddlewareInterface::class));
             }
             $next = $chain;
             $chain = static fn(Request $request): Response => $middleware->process($request, $next);
@@ -90,7 +93,7 @@ final class Kernel
     public function reset(): void
     {
         $resetter = $this->container->get(StateResetter::class);
-        $resetter instanceof StateResetter || throw new \LogicException('StateResetter service missing.');
+        $resetter instanceof StateResetter || throw new ConfigurationException('StateResetter service missing.');
         $resetter->reset();
     }
 
@@ -106,16 +109,16 @@ final class Kernel
                 $request->attributes->set((string) $key, $value);
             }
             if (!\is_string($controllerId)) {
-                throw new \LogicException('Matched route has no controller.');
+                throw new ConfigurationException('Matched route has no controller.');
             }
 
             $controller = $this->container->get($controllerId);
             if (!\is_callable($controller)) {
-                throw new \LogicException('Controller service is not invokable.');
+                throw new ConfigurationException('Controller service is not invokable.');
             }
             $response = $controller($request);
 
-            return $response instanceof Response ? $response : throw new \LogicException('Controller must return a Response.');
+            return $response instanceof Response ? $response : throw new ConfigurationException('Controller must return a Response.');
         } catch (\Throwable $e) {
             return $this->errors->respond($request, $e);
         }

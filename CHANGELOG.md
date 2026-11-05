@@ -4,4 +4,13 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
-- Initial repository skeleton.
+### Added
+- `Kernel`: compiled router and container, middleware chain, `application/problem+json` errors (400, 404, 405, 413, 500), synthetic services.
+- Middleware: `RequestIdMiddleware` (request id and trace id), `SecurityHeadersMiddleware`, `BodySizeLimitMiddleware`.
+- `WorkerRunner` and `StateResetter`: FrankenPHP worker loop with max requests, memory limit, fail-fast on reset errors.
+- Build-time warmup: `vendor/bin/slimfony warmup` (`ContainerCompiler`, `CompilationCache`).
+- `Config\Env` (typed, `NAME_FILE` secrets) and `Config\Trust` (trusted proxies and hosts).
+- `Log\JsonStdoutLogger` with request correlation and secret redaction.
+- Database: `ConnectionFactory`, `ConnectionLifecycle` (leaked transactions, idle connections), `Retry`.
+- Exception hierarchy: `SlimfonyException`, `ConfigurationException`, `BuildException`, `HttpException`.
+- CI: PHP 8.4 and 8.5, real PostgreSQL, FrankenPHP worker smoke test, Codecov, weekly outdated check.

@@ -6,6 +6,8 @@ namespace Slimfony\Core\Http;
 
 /**
  * Names of the request attributes the core sets or reads. One place, so a typo cannot silently break correlation.
+ *
+ * @api
  */
 final class Attributes
 {

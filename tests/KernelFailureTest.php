@@ -6,21 +6,22 @@ namespace Slimfony\Core\Tests;
 
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Slimfony\Core\Exception\ConfigurationException;
 use Slimfony\Core\Kernel;
 use Slimfony\Core\Tests\Support\RecordingLogger;
+use Slimfony\Core\Tests\Support\TestKernel;
 use Symfony\Component\HttpFoundation\Request;
 
 /** What must happen when the application or its configuration is broken. */
 final class KernelFailureTest extends TestCase
 {
-    private const string FIXTURES = __DIR__ . '/Fixtures';
+    private const string FIXTURES = TestKernel::FIXTURES;
 
     public function testControllerThatDoesNotReturnAResponseIsA500WithoutLeak(): void
     {
         $logger = new RecordingLogger();
-        $kernel = new Kernel(self::FIXTURES . '/services.php', self::FIXTURES . '/routes.php', logger: $logger);
 
-        $response = $kernel->handle(Request::create('/notresponse'));
+        $response = TestKernel::create(logger: $logger)->handle(Request::create('/notresponse'));
 
         self::assertSame(500, $response->getStatusCode());
         self::assertStringNotContainsString('Response', (string) $response->getContent());
@@ -41,7 +42,7 @@ final class KernelFailureTest extends TestCase
     #[DataProvider('brokenConfigurations')]
     public function testMisconfigurationFailsAtBootNotOnTheFirstRequest(string $services, string $routes): void
     {
-        $this->expectException(\LogicException::class);
+        $this->expectException(ConfigurationException::class);
 
         new Kernel(self::FIXTURES . $services, self::FIXTURES . $routes);
     }

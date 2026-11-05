@@ -7,6 +7,9 @@ namespace Slimfony\Core\Http;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * @api
+ */
 interface MiddlewareInterface
 {
     /**

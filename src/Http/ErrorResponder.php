@@ -15,6 +15,8 @@ use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 /**
  * Turns any Throwable into a problem+json response. Anything unexpected becomes a 500 without internals
  * (they go to the log); only in debug mode the class and message are shown.
+ *
+ * @internal
  */
 final class ErrorResponder
 {

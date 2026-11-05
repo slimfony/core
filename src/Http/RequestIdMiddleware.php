@@ -11,6 +11,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Sets request attributes "request_id" and "trace_id" (never trusting raw input) and echoes X-Request-Id.
  * Incoming values are accepted only in a strict format, otherwise they are replaced (log injection guard).
+ *
+ * @api
  */
 final class RequestIdMiddleware implements MiddlewareInterface
 {

@@ -63,3 +63,14 @@ Binding rules for every change. If a change breaks one, it needs a written reaso
 | Async / messaging | M2: transactional outbox + NATS | not the core's job; kernel is CLI-bootable for relays/consumers |
 | Outbound HTTP, validation, serialization | Application's choice | not core |
 | Rate limiting, CORS, TLS | Gateway / ingress / Caddy | core only exposes the middleware seam |
+
+## 6. Definition of done (binding for every change, by humans and AI assistants alike)
+A change is not done until all of this is true:
+
+1. `composer ci` exits 0 (phpunit, phpstan max, php-cs-fixer). Check the exit code, not the output text. Never commit a red tree; after pushing, the GitHub Actions run must be green too.
+2. A new library class is `final`, has `declare(strict_types=1)`, carries `@api` or `@internal`, types everything, uses `#[\Override]` where it implements or overrides, and gets its collaborators injected. Errors the core raises on purpose come from the exception hierarchy: `ConfigurationException` (bad configuration, found at boot), `BuildException` (build-time step failed), `HttpException` (a deliberate HTTP error); all implement `SlimfonyException`. `tests/ArchitectureTest.php` enforces most of this.
+3. A setting with a valid range validates itself in a property hook, so nonsense fails when the object is built at boot.
+4. Tests: behaviour only, few, deterministic, safe in random order. Use the helpers in `tests/Support` (`TestKernel`, `TempDir`, `RecordingLogger`, `TestDb`) instead of copying their code. Anything touching PostgreSQL, APCu or FrankenPHP is proven in CI against the real thing.
+5. Dependencies: every package at its latest stable release, checked with `composer outdated` and never from memory. A new `require` needs the justification from section 1.
+6. Docs: a change in public behaviour updates the README (its code samples are executed by `tests/ReadmeTest.php`) and the CHANGELOG.
+7. Secrets: never in code, logs, the compiled cache or the repository.

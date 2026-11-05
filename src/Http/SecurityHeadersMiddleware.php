@@ -10,6 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 /**
  * Secure API defaults. A controller may opt into caching with an explicit public/max-age Cache-Control.
  * HSTS is left to the ingress/Caddy.
+ *
+ * @api
  */
 final class SecurityHeadersMiddleware implements MiddlewareInterface
 {

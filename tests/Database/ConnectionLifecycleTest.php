@@ -5,25 +5,15 @@ declare(strict_types=1);
 namespace Slimfony\Core\Tests\Database;
 
 use PHPUnit\Framework\TestCase;
-use Psr\Log\AbstractLogger;
 use Slimfony\Core\Database\ConnectionLifecycle;
+use Slimfony\Core\Tests\Support\RecordingLogger;
 use Slimfony\Core\Tests\Support\TestDb;
 
 final class ConnectionLifecycleTest extends TestCase
 {
     public function testTransactionLeftOpenByARequestIsRolledBackAndLogged(): void
     {
-        $logger = new class extends AbstractLogger {
-            /** @var list<string> */
-            public array $errors = [];
-
-            public function log(mixed $level, string|\Stringable $message, array $context = []): void
-            {
-                if ('error' === $level) {
-                    $this->errors[] = (string) $message;
-                }
-            }
-        };
+        $logger = new RecordingLogger();
         $connection = TestDb::connection();
         $lifecycle = new ConnectionLifecycle($connection, $logger);
 
@@ -34,7 +24,8 @@ final class ConnectionLifecycleTest extends TestCase
 
         self::assertSame(0, $connection->getTransactionNestingLevel());
         self::assertSame(0, TestDb::count($connection), 'the leaked transaction must not be committed');
-        self::assertCount(1, $logger->errors);
+        self::assertCount(1, $logger->records);
+        self::assertStringStartsWith('error: Transaction left open', $logger->records[0]);
     }
 
     public function testIdleConnectionIsRecycledButABusyOneIsKept(): void

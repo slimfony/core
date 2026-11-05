@@ -9,7 +9,8 @@ use Slimfony\Core\Build\CompilationCache;
 use Slimfony\Core\Build\ContainerCompiler;
 use Slimfony\Core\Config\Env;
 use Slimfony\Core\Config\Trust;
-use Slimfony\Core\Kernel;
+use Slimfony\Core\Tests\Support\TempDir;
+use Slimfony\Core\Tests\Support\TestKernel;
 use Symfony\Component\HttpFoundation\Request;
 
 final class TrustTest extends TestCase
@@ -39,7 +40,7 @@ final class TrustTest extends TestCase
     public function testRequestsForAnUntrustedHostAreAnswered400NotServed(): void
     {
         new Trust(new Env(['TRUSTED_HOSTS' => 'api.example.com']))->apply();
-        $kernel = new Kernel(__DIR__ . '/../Fixtures/services.php', __DIR__ . '/../Fixtures/routes.php');
+        $kernel = TestKernel::create();
 
         self::assertSame(200, $kernel->handle(Request::create('http://api.example.com/hello/x'))->getStatusCode());
         self::assertSame(400, $kernel->handle(Request::create('http://evil.example.net/hello/x'))->getStatusCode());
@@ -47,19 +48,16 @@ final class TrustTest extends TestCase
 
     public function testNoSecretValueEverEndsUpInTheCompiledCache(): void
     {
-        $dir = sys_get_temp_dir() . '/slimfony-test-' . bin2hex(random_bytes(6));
+        $cache = new TempDir();
         putenv('SLIMFONY_TEST_SECRET=top-secret-value-123');
 
         try {
-            new CompilationCache($dir)->store(new ContainerCompiler(__DIR__ . '/../Fixtures/Bad/secret_in_env.php', __DIR__ . '/../Fixtures/Bad/empty_routes.php')->compile());
+            new CompilationCache($cache->path)->store(new ContainerCompiler(TestKernel::FIXTURES . '/Bad/secret_in_env.php', TestKernel::FIXTURES . '/Bad/empty_routes.php')->compile());
 
-            $files = glob($dir . '/*');
-            self::assertNotEmpty($files);
-            foreach ($files as $file) {
+            self::assertNotEmpty($cache->files());
+            foreach ($cache->files() as $file) {
                 self::assertStringNotContainsString('top-secret-value-123', (string) file_get_contents($file));
-                unlink($file);
             }
-            rmdir($dir);
         } finally {
             putenv('SLIMFONY_TEST_SECRET');
         }

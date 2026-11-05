@@ -6,6 +6,7 @@ namespace Slimfony\Core\Tests\Config;
 
 use PHPUnit\Framework\TestCase;
 use Slimfony\Core\Config\Env;
+use Slimfony\Core\Exception\ConfigurationException;
 
 final class EnvTest extends TestCase
 {
@@ -22,15 +23,17 @@ final class EnvTest extends TestCase
         }
     }
 
-    public function testAmbiguousOrBrokenSecretSourcesFailLoudlyAtBoot(): void
+    public function testAmbiguousSecretSourceFailsLoudlyAtBoot(): void
     {
-        try {
-            new Env(['X' => 'a', 'X_FILE' => '/tmp/b'])->get('X');
-            self::fail('Both X and X_FILE must be rejected.');
-        } catch (\LogicException) {
-        }
+        $this->expectException(ConfigurationException::class);
 
-        $this->expectException(\RuntimeException::class);
+        new Env(['X' => 'a', 'X_FILE' => '/irrelevant'])->get('X');
+    }
+
+    public function testUnreadableSecretFileFailsLoudlyAtBoot(): void
+    {
+        $this->expectException(ConfigurationException::class);
+
         new Env(['X_FILE' => '/nonexistent/secret'])->get('X');
     }
 
@@ -46,7 +49,7 @@ final class EnvTest extends TestCase
             try {
                 $read();
                 self::fail('Invalid or missing configuration must not be silently accepted.');
-            } catch (\RuntimeException) {
+            } catch (ConfigurationException) {
             }
         }
     }

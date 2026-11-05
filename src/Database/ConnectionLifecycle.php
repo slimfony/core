@@ -15,6 +15,8 @@ use Symfony\Contracts\Service\ResetInterface;
  *   fails, the connection is closed and the error propagates, which stops the worker.
  * - beginRequest() (start of request): a connection idle for longer than $idleSeconds is closed, so the next
  *   query reconnects lazily instead of hitting a connection the server/pooler already dropped. No ping.
+ *
+ * @api
  */
 final class ConnectionLifecycle implements ResetInterface
 {

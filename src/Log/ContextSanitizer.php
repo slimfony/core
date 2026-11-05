@@ -7,6 +7,8 @@ namespace Slimfony\Core\Log;
 /**
  * Makes a log context safe to write: secret-looking keys are redacted, credentials inside URLs/DSNs are masked,
  * exceptions are flattened without trace arguments (arguments often hold secrets), and values are bounded.
+ *
+ * @internal
  */
 final class ContextSanitizer
 {

@@ -11,6 +11,8 @@ use Doctrine\DBAL\Tools\DsnParser;
 /**
  * PostgreSQL connection with worker-safe defaults: never persistent, bounded connect timeout,
  * application_name for pg_stat_activity. The DSN carries credentials: never log it.
+ *
+ * @api
  */
 final class ConnectionFactory
 {

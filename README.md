@@ -6,51 +6,45 @@
 [![Symfony](https://img.shields.io/badge/Symfony-8.1-000000?logo=symfony&logoColor=white)](https://symfony.com/releases/8.1)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A small, strict core for PHP microservices running on **FrankenPHP worker mode**. It is built from a handful of Symfony components, compiled once at boot, and leaks no state between requests.
+A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is built from a few Symfony components, compiled once at build time, and keeps no state between requests.
 
-> **Status:** pre-alpha. The API may still change.
+> **Status:** pre-alpha. Only classes marked `@api` are covered by SemVer, and even those may change before 1.0.
 
 ## Why
 
-- **Fast:** nothing is computed per request that can be done at boot (container, router, middleware chain).
-- **Small:** no YAML, no event dispatcher, no polyfills, PHP 8.4+. Runtime dependencies are limited to `http-foundation`, `routing`, `dependency-injection`, `doctrine/dbal` and `psr/log`.
-- **Secure by default:** no leaked errors, validated request ids, security headers, body size limit.
-- **Worker-safe:** services are reset after every request, and the worker stops if a reset fails.
+- **Fast:** nothing is computed per request that can be done at build or boot (container, router, middleware chain).
+- **Small:** no YAML, no event dispatcher, no polyfills, PHP 8.4+. Runtime dependencies: `http-foundation`, `routing`, `dependency-injection`, `doctrine/dbal`, `psr/log`.
+- **Secure by default:** no leaked errors, validated request ids, security headers, body size limit, nothing trusted until configured.
+- **Worker-safe:** services are reset after every request; if a reset fails the worker stops.
 
-Rules and the scope of the core are in [GUIDELINES.md](GUIDELINES.md).
+It is the base for our own services, not a library for arbitrary apps: every service owns its dependency tree and commits its own `composer.lock`. Rules and scope: [GUIDELINES.md](GUIDELINES.md).
 
 ## Quickstart
 
-Install into your own service: `composer require slimfony/core` (not on Packagist yet). It is the base of a service, not a library for arbitrary apps: PHP 8.4+, newest Symfony/DBAL only, and the service commits its own `composer.lock`.
+Not on Packagist yet; install from GitHub. In your service's `composer.json`:
 
-`config/services.php`
-
-```php
-use Slimfony\Core\Http\{RequestIdMiddleware, SecurityHeadersMiddleware};
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-
-return static function (ContainerBuilder $c): void {
-    $c->register(RequestIdMiddleware::class);
-    $c->register(SecurityHeadersMiddleware::class);
-    $c->register(App\Hello::class)->setAutowired(true);
-
-    $c->setParameter('slimfony.middleware', [RequestIdMiddleware::class, SecurityHeadersMiddleware::class]);
-};
+```json
+{
+    "repositories": [{ "type": "vcs", "url": "https://github.com/slimfony/core" }],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "require": { "slimfony/core": "dev-main" },
+    "autoload": { "psr-4": { "App\\": "src/" } }
+}
 ```
 
-`config/routes.php`
+`src/Hello.php` is a controller: an invokable service.
 
 ```php
-use Symfony\Component\Routing\{Route, RouteCollection};
+<?php
 
-return static function (RouteCollection $r): void {
-    $r->add('hello', new Route('/hello/{name}', ['_controller' => App\Hello::class], methods: ['GET']));
-};
-```
+declare(strict_types=1);
 
-A controller is an invokable service:
+namespace App;
 
-```php
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+
 final class Hello
 {
     public function __invoke(Request $request): Response
@@ -60,57 +54,178 @@ final class Hello
 }
 ```
 
-`public/index.php`
+`config/services.php` registers services and the middleware chain (outermost first):
 
 ```php
-require __DIR__ . '/../vendor/autoload.php';
+<?php
 
-use Slimfony\Core\Config\{Env, Trust};
+declare(strict_types=1);
+
+use App\Hello;
+use Psr\Log\LoggerInterface;
+use Slimfony\Core\Http\RequestIdMiddleware;
+use Slimfony\Core\Http\SecurityHeadersMiddleware;
+use Slimfony\Core\Log\RequestContext;
+use Slimfony\Core\Worker\ResetPass;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+
+return static function (ContainerBuilder $c): void {
+    // created in public/index.php (the logger is needed before the container exists) and handed over as synthetic services
+    $c->register(RequestContext::class)->setSynthetic(true)->setPublic(true)->addTag(ResetPass::TAG);
+    $c->register(LoggerInterface::class)->setSynthetic(true)->setPublic(true);
+
+    $c->register(RequestIdMiddleware::class)->setAutowired(true);
+    $c->register(SecurityHeadersMiddleware::class);
+    $c->setParameter('slimfony.middleware', [RequestIdMiddleware::class, SecurityHeadersMiddleware::class]);
+
+    $c->register(Hello::class);
+};
+```
+
+`config/routes.php` maps routes to controller services:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use App\Hello;
+use Symfony\Component\Routing\Route;
+use Symfony\Component\Routing\RouteCollection;
+
+return static function (RouteCollection $r): void {
+    $r->add('hello', new Route('/hello/{name}', ['_controller' => Hello::class], methods: ['GET']));
+};
+```
+
+`public/index.php` is the worker script:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Psr\Log\LoggerInterface;
+use Slimfony\Core\Config\Env;
+use Slimfony\Core\Config\Trust;
 use Slimfony\Core\Kernel;
+use Slimfony\Core\Log\JsonStdoutLogger;
+use Slimfony\Core\Log\RequestContext;
 use Slimfony\Core\Worker\WorkerRunner;
 
+require __DIR__ . '/../vendor/autoload.php';
+
 $env = Env::fromGlobals();
-(new Trust($env))->apply(); // TRUSTED_PROXIES / TRUSTED_HOSTS, nothing trusted by default
+new Trust($env)->apply(); // TRUSTED_PROXIES / TRUSTED_HOSTS; nothing is trusted by default
+
+$context = new RequestContext();
+$logger = new JsonStdoutLogger($env->string('LOG_LEVEL', 'info'), $context);
 
 $kernel = new Kernel(
     __DIR__ . '/../config/services.php',
     __DIR__ . '/../config/routes.php',
-    debug: $env->bool('APP_DEBUG'), // false unless set
+    debug: $env->bool('APP_DEBUG'),
+    logger: $logger,
+    cacheDir: __DIR__ . '/../var/cache', // written by the warmup below; compiled at boot when missing
+    synthetic: [RequestContext::class => $context, LoggerInterface::class => $logger],
 );
 
-(new WorkerRunner($kernel, maxRequests: $env->int('MAX_REQUESTS', 0)))->run();
+new WorkerRunner($kernel, $logger, maxRequests: $env->int('MAX_REQUESTS', 0))->run();
 ```
 
-Without FrankenPHP the runner serves a single request, so the same file works as a classic front controller.
+Run it with FrankenPHP, `Caddyfile`:
 
-**Production:** compile once at image build time, not in every worker:
+```
+{
+	frankenphp {
+		worker {
+			file /app/public/index.php
+			num 4
+			env MAX_REQUESTS 500
+		}
+	}
+}
+
+:8080 {
+	root * /app/public
+	php_server
+}
+```
+
+Without FrankenPHP the runner serves a single request, so the same `index.php` works as a classic front controller.
+
+## Production
+
+Compile once when the image is built, not in every worker:
 
 ```
 vendor/bin/slimfony warmup config/services.php config/routes.php var/cache
 ```
 
-and pass `cacheDir: __DIR__ . '/../var/cache'` as the last `Kernel` argument. Workers then only `require` the dumped container and route table (shared by opcache). A broken configuration fails the warmup, so it never ships. Without a cache (or with `debug: true`) the Kernel compiles at boot, which is fine for development and tests.
+Workers then only `require` the dumped container and route table (shared by opcache). A broken configuration fails the warmup, so it never ships. Without a cache, or with `APP_DEBUG=1`, the Kernel compiles at boot, which is fine for development.
+
+| Variable | Read by | Meaning |
+|---|---|---|
+| `APP_DEBUG` | `index.php` | `1` shows exception class and message in 500 responses. Default off. |
+| `LOG_LEVEL` | `index.php` | Minimum log level, default `info`. |
+| `MAX_REQUESTS` | `index.php` | Restart the worker after N requests, `0` = never. |
+| `TRUSTED_PROXIES` | `Config\Trust` | Comma separated IPs/CIDRs of your ingress or load balancer. Without it `X-Forwarded-*` is ignored and the client IP is the ingress. |
+| `TRUSTED_HOSTS` | `Config\Trust` | Comma separated exact host names; any other `Host` gets a 400. |
+| `<NAME>_FILE` | `Config\Env` | For any `NAME`: read the value from this file (Docker/Kubernetes secrets). |
+
+Never put secret values into `services.php`: use `%env(NAME)%`, so the dumped cache only ever holds the placeholder.
+
+## Database
+
+PostgreSQL through DBAL, safe across requests in a long-lived worker. The pieces are plain objects, wire them in `index.php` and hand them to the container as synthetic services:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Doctrine\DBAL\Connection;
+use Slimfony\Core\Config\Env;
+use Slimfony\Core\Database\ConnectionFactory;
+use Slimfony\Core\Database\ConnectionLifecycle;
+use Slimfony\Core\Database\Retry;
+
+$env = Env::fromGlobals();
+
+$connection = ConnectionFactory::create($env->string('DATABASE_URL'), transactionPooling: $env->bool('PGBOUNCER'));
+$lifecycle = new ConnectionLifecycle($connection, idleSeconds: 30); // register it as a synthetic service tagged with ResetPass::TAG
+$retry = new Retry($connection);
+
+// transient failures: the whole transaction is re-run on deadlock; a lost connection only with idempotent: true
+$retry->transactional(static function (Connection $db): void {
+    $db->executeStatement('UPDATE counters SET n = n + 1 WHERE id = ?', [1]);
+}, idempotent: false);
+```
+
+`ConnectionLifecycle` rolls back (and logs) a transaction a request left open, and recycles a connection that has been idle too long. Add `ConnectionLifecycleMiddleware` to the chain to enable the idle check. All SQL uses bound parameters.
 
 ## What is in the box
 
 | Component | What it does |
 |---|---|
-| `Kernel` | Boots once, routes, runs controllers, turns errors into `application/problem+json` (404, 405 with `Allow`, 413, 500). |
-| `Http\*Middleware` | `RequestId` (request id + trace id, forged values replaced), `SecurityHeaders`, `BodySizeLimit`. |
-| `Worker\WorkerRunner` | The worker loop: max requests, memory limit, optional GC, fail-fast on reset errors. |
-| `Build\ContainerCompiler`, `Build\CompilationCache` | Compile the config, and dump it at build time (`bin/slimfony warmup`) so workers only `require` it. |
-| `Config\Env`, `Config\Trust` | Typed env access with `NAME_FILE` secret files; trusted proxies and hosts (secure defaults). |
-| `Worker\StateResetter` | Resets every service implementing `ResetInterface` that was used during the request. |
+| `Kernel` | Boots once, routes, runs controllers, turns errors into `application/problem+json` (400, 404, 405 with `Allow`, 413, 500). |
+| `Http\RequestIdMiddleware`, `SecurityHeadersMiddleware`, `BodySizeLimitMiddleware` | Request id and trace id (forged values replaced), secure response headers, 413 on a too large `Content-Length`. |
+| `Worker\WorkerRunner` | The worker loop: max requests, memory limit, optional GC, stops when a reset fails. |
+| `Build\ContainerCompiler`, `CompilationCache` | Compile the configuration and dump it at build time (`vendor/bin/slimfony warmup`). |
+| `Log\JsonStdoutLogger` | One JSON object per line on stdout, tagged with request id and trace id; secrets are redacted. |
+| `Config\Env`, `Config\Trust` | Typed environment access with `NAME_FILE` secrets; trusted proxies and hosts. |
+| `Database\*` | Connection factory, lifecycle (leaked transactions, idle connections), bounded retries. |
 
 ## Worker mode pitfalls
 
-- Request-scoped state belongs in a service implementing `Symfony\Contracts\Service\ResetInterface` (register it with `setAutoconfigured(true)`), never in `static` properties.
-- There are no server-side sessions by design. Services stay stateless; identity travels in the token.
-- Chunked bodies without `Content-Length` are not caught by `BodySizeLimit`; limit them at the edge (Caddy `request_body max_size`).
+- Request-scoped state belongs in a service implementing `Symfony\Contracts\Service\ResetInterface` (register it with `setAutoconfigured(true)`), never in `static` properties. The reset runs after every request.
+- There are no server-side sessions, by design: a service stays stateless and identity travels in the token.
+- Chunked bodies without `Content-Length` are not caught by `BodySizeLimitMiddleware`; limit them at the edge (Caddy `request_body max_size`).
+- Keep the number of worker threads times the number of pods below your PostgreSQL `max_connections` (or put PgBouncer in front).
 
 ## Roadmap
 
-1. Prometheus metrics, `/healthz` and `/readyz`, JSON logger.
+1. Prometheus metrics, `/healthz` and `/readyz`.
 2. Auth contract, then an optional `slimfony/auth-jwt`.
 3. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
 4. Async: transactional outbox and NATS integration, shown in the demo.
@@ -120,6 +235,8 @@ and pass `cacheDir: __DIR__ . '/../var/cache'` as the last `Kernel` argument. Wo
 ```
 composer ci    # phpunit + phpstan (max) + php-cs-fixer
 ```
+
+The code rules are enforced by the tests; see [GUIDELINES.md](GUIDELINES.md). The code samples in this README are executed by `tests/ReadmeTest.php`, so they cannot rot.
 
 ## License
 

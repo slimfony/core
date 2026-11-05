@@ -5,19 +5,14 @@ declare(strict_types=1);
 namespace Slimfony\Core\Tests;
 
 use PHPUnit\Framework\TestCase;
-use Slimfony\Core\Kernel;
 use Slimfony\Core\Tests\Support\RecordingLogger;
+use Slimfony\Core\Tests\Support\TestKernel;
 use Slimfony\Core\Worker\WorkerRunner;
 use Symfony\Component\HttpFoundation\Request;
 
 /** The safety nets of the worker loop. */
 final class WorkerSafetyTest extends TestCase
 {
-    private function kernel(): Kernel
-    {
-        return new Kernel(__DIR__ . '/Fixtures/services.php', __DIR__ . '/Fixtures/routes.php');
-    }
-
     public function testStrayOutputFromAControllerIsDiscardedAndLoggedNotMixedIntoTheResponse(): void
     {
         $logger = new RecordingLogger();
@@ -28,7 +23,7 @@ final class WorkerSafetyTest extends TestCase
         };
 
         ob_start();
-        new WorkerRunner($this->kernel(), $logger, $server, static fn(): Request => Request::create('/chatty'))->run();
+        new WorkerRunner(TestKernel::create(), $logger, $server, static fn(): Request => Request::create('/chatty'))->run();
         $output = (string) ob_get_clean();
 
         self::assertSame('ok', $output);
@@ -46,7 +41,7 @@ final class WorkerSafetyTest extends TestCase
         };
 
         ob_start();
-        new WorkerRunner($this->kernel(), null, $server, static fn(): Request => Request::create('/count'), maxMemoryBytes: 1)->run();
+        new WorkerRunner(TestKernel::create(), null, $server, static fn(): Request => Request::create('/count'), maxMemoryBytes: 1)->run();
         ob_end_clean();
 
         self::assertSame(1, $handled);
@@ -57,7 +52,7 @@ final class WorkerSafetyTest extends TestCase
         self::assertFalse(\function_exists('frankenphp_handle_request'), 'this test is for plain CLI/FPM');
 
         ob_start();
-        new WorkerRunner($this->kernel(), requestFactory: static fn(): Request => Request::create('/count'))->run();
+        new WorkerRunner(TestKernel::create(), requestFactory: static fn(): Request => Request::create('/count'))->run();
 
         self::assertSame('1', ob_get_clean());
     }

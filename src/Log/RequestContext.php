@@ -9,6 +9,8 @@ use Symfony\Contracts\Service\ResetInterface;
 /**
  * Correlation ids of the request being served. Started by RequestIdMiddleware, read by the logger,
  * cleared after every request by the StateResetter.
+ *
+ * @api
  */
 final class RequestContext implements ResetInterface
 {
