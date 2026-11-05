@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05
+
 ### Added
 - JWT bearer authentication (`Auth\Jwt\*`): `JwtAuthenticator`, `JwtConfiguration`, `JwksKeyProvider` (JWKS shared in APCu), `StaticKeyProvider`. Optional dependency `firebase/php-jwt`; a token that verified is remembered for 30 seconds.
 - Benchmark scenarios with real RS256, ES256 and EdDSA tokens.

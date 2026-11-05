@@ -360,17 +360,34 @@ Any other scheme, for example an identity header set by a trusted gateway, is an
 
 ## Performance
 
-`composer bench` measures what the core itself adds to a request: `Kernel::handle()` with a typical production chain (metrics in APCu, request id, security headers, body limit, authentication), one request at a time, as latency percentiles. It excludes HTTP parsing and the network (Caddy/FrankenPHP) and your own application code. The goal is a p95 below 1 ms; CI enforces a much stricter regression guard (p95 below 250 µs, more than ten times the measured value on the CI runner) and prints the table in the job summary.
+`composer bench` measures what the core itself adds to a request: `Kernel::handle()` with a typical production chain (metrics in APCu, request id, security headers, body limit, authentication), one request at a time, as latency percentiles. It excludes HTTP parsing and the network (Caddy/FrankenPHP) and your own application code. The goal is a p95 below 1 ms. CI fails if any scenario's p95 exceeds 250 µs and prints the table in the job summary.
 
-Measured on a Windows 11 development machine, PHP 8.4 with opcache and JIT (like a FrankenPHP worker), 30 000 requests per scenario:
+Results on the CI runner (Linux, PHP 8.4, opcache and JIT on, 30 000 requests per scenario), in microseconds:
 
-| Scenario | p50 µs | p95 µs | p99 µs |
+| Scenario | p50 | p95 | p99 |
 |---|---:|---:|---:|
-| `GET /healthz` (public route) | 27.5 | 34.4 | 51.9 |
-| `GET /hello/{name}` (authenticated, scope check, JSON response) | 31.3 | 40.3 | 73.7 |
-| `GET /unknown` (404 through the chain) | 34.1 | 77.9 | 167.7 |
+| `GET /healthz` (public route) | 28.8 | 40.3 | 51.2 |
+| `GET /hello/{name}` (authenticated, scope check, JSON response) | 34.1 | 44.3 | 56.5 |
+| `GET /unknown` (404 through the chain) | 34.4 | 44.0 | 55.8 |
+| RS256 JWT, token remembered (default) | 35.7 | 46.5 | 58.4 |
+| ES256 JWT, token remembered (default) | 35.4 | 46.3 | 57.4 |
+| EdDSA JWT, token remembered (default) | 35.3 | 46.9 | 58.9 |
+| RS256 JWT, signature verified on every request | 129.2 | 151.1 | 168.6 |
+| ES256 JWT, signature verified on every request | 197.4 | 222.4 | 245.1 |
+| EdDSA JWT, signature verified on every request | 116.7 | 136.8 | 152.2 |
 
-That is roughly 25 times below the 1 ms goal at p95; on the Linux CI runner the p95 is 19–22 µs. Without opcache (the CLI default) the same run gives a p95 of 50–110 µs. Numbers depend on the machine; this is the overhead of the core, not an end-to-end throughput claim. End-to-end load tests with k6 belong to the demo.
+- The core's own work (routing, five middleware, controller, response) stays below 50 µs at p95, twenty times below the goal.
+- With JWT authentication the default costs the same as no authentication: a token that verified is remembered for 30 seconds.
+- Verifying the signature on every request (`cacheSeconds: 0`) makes the whole request take 137 µs (EdDSA), 151 µs (RS256) or 222 µs (ES256) at p95. The signature check is the cost, not the core.
+
+Other environments, p95 in microseconds:
+
+| Environment | public route | authenticated JSON | 404 |
+|---|---:|---:|---:|
+| Faster CI runner (Linux, PHP 8.4, opcache and JIT) | 18.5 | 21.2 | 20.7 |
+| Windows 11 development machine (PHP 8.4, opcache and JIT) | 34.6 | 40.2 | 40.2 |
+
+The same scenarios without opcache (the CLI default) are two to three times slower. Runner hardware varies, which is why the CI guard sits at 250 µs, ten times the usual result. These numbers are the overhead of the core, not an end-to-end throughput claim; end-to-end load tests with k6 belong to the demo.
 ## Roadmap
 
 1. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
