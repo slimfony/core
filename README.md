@@ -255,19 +255,64 @@ declare(strict_types=1);
 
 use Slimfony\Core\Health\LivenessController;
 use Slimfony\Core\Health\ReadinessController;
+use Slimfony\Core\Http\Attributes;
 use Slimfony\Core\Observability\MetricsController;
 use Symfony\Component\Routing\Route;
 
-// inside the closure that receives the RouteCollection $r:
-$r->add('healthz', new Route('/healthz', ['_controller' => LivenessController::class], methods: ['GET']));
-$r->add('readyz', new Route('/readyz', ['_controller' => ReadinessController::class], methods: ['GET']));
-$r->add('metrics', new Route('/metrics', ['_controller' => MetricsController::class], methods: ['GET']));
+// inside the closure that receives the RouteCollection $r (PUBLIC matters once AuthMiddleware is in the chain):
+$r->add('healthz', new Route('/healthz', ['_controller' => LivenessController::class, Attributes::PUBLIC => true], methods: ['GET']));
+$r->add('readyz', new Route('/readyz', ['_controller' => ReadinessController::class, Attributes::PUBLIC => true], methods: ['GET']));
+$r->add('metrics', new Route('/metrics', ['_controller' => MetricsController::class, Attributes::PUBLIC => true], methods: ['GET']));
 ```
 
 - `/healthz` (liveness) never touches a dependency, so a database outage does not make Kubernetes restart healthy pods.
 - `/readyz` (readiness) runs your `ReadinessCheck`s (`DatabaseReadinessCheck` is included), caches the result for 2 seconds and names failed checks without their error text.
 - `/metrics` refuses to be constructed unprotected: pass a bearer token (16+ characters) and/or a list of allowed client IPs/CIDRs. Nothing is exposed unless you register the route.
 - The built-in series are `http_requests_total{method,route,status}` and `http_request_duration_seconds{method,route}` (sub-millisecond buckets). The route label is the route name, never the raw URL. Add your own with `$registry->counter(...)` and `$registry->histogram(...)` at boot; `ConnectionLifecycle` accepts a counter for `db_transactions_leaked_total`.
+## Authentication
+
+The core defines the contract; verifying credentials is up to an `Authenticator` (a JWT verifier will ship as the separate, optional `slimfony/auth-jwt`; an identity header from a trusted gateway works too):
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Slimfony\Core\Auth\Authenticator;
+use Slimfony\Core\Auth\Principal;
+use Symfony\Component\HttpFoundation\Request;
+
+final class TokenAuthenticator implements Authenticator
+{
+    public function __construct(private readonly TokenVerifier $verifier) {} // your verifier: signature, issuer, audience, expiry
+
+    #[\Override]
+    public function authenticate(Request $request): ?Principal
+    {
+        $claims = $this->verifier->verify((string) $request->headers->get('Authorization')); // null when not valid
+
+        return null === $claims ? null : new Principal($claims['sub'], $claims['scopes'], $claims);
+    }
+}
+```
+
+Put `AuthMiddleware` in the chain (after `RequestIdMiddleware`) and register your authenticator as the `Authenticator` service. From then on **everything is denied by default**: a request without a valid caller gets 401, also on paths that match no route (so the API cannot be mapped by its 404s). Routes opt out or demand scopes through their defaults:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+use Slimfony\Core\Health\LivenessController;
+use Slimfony\Core\Http\Attributes;
+use Symfony\Component\Routing\Route;
+
+// inside the closure that receives the RouteCollection $r:
+$r->add('healthz', new Route('/healthz', ['_controller' => LivenessController::class, Attributes::PUBLIC => true]));
+$r->add('orders', new Route('/orders', ['_controller' => OrdersController::class, Attributes::SCOPES => ['orders:read']]));
+```
+
+A caller that lacks any of the listed scopes gets 403. Controllers of protected routes read the caller with `Principal::from($request)`. Mark `/healthz`, `/readyz` and `/metrics` as `Attributes::PUBLIC` (the metrics controller has its own token or IP protection).
 ## What is in the box
 
 | Component | What it does |
@@ -280,6 +325,7 @@ $r->add('metrics', new Route('/metrics', ['_controller' => MetricsController::cl
 | `Config\Env`, `Config\Trust` | Typed environment access with `NAME_FILE` secrets; trusted proxies and hosts. |
 | `Observability\*` | Counters and histograms in shared APCu memory, Prometheus text format, protected `/metrics`, `MetricsMiddleware`. |
 | `Health\*` | `/healthz` and `/readyz` controllers and the `ReadinessCheck` interface. |
+| `Auth\*` | `Authenticator` contract, `Principal`, `AuthMiddleware`: deny by default, `_public` and `_scopes` route defaults. |
 | `Database\*` | Connection factory, lifecycle (leaked transactions, idle connections), bounded retries. |
 
 ## Worker mode pitfalls
@@ -291,7 +337,7 @@ $r->add('metrics', new Route('/metrics', ['_controller' => MetricsController::cl
 
 ## Roadmap
 
-1. Auth contract, then an optional `slimfony/auth-jwt`.
+1. Optional `slimfony/auth-jwt` (verify-only JWT `Authenticator`).
 2. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
 3. Async: transactional outbox and NATS integration, shown in the demo.
 

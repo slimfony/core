@@ -17,6 +17,14 @@ final class Attributes
     public const string CONTROLLER = '_controller';
     /** set by the router: the route name (also the metrics label, never the raw URL) */
     public const string ROUTE = '_route';
+    /** route default: `true` makes the route reachable without authentication */
+    public const string PUBLIC = '_public';
+    /** route default: list of scopes the caller must all have */
+    public const string SCOPES = '_scopes';
+    /** set by AuthMiddleware: the authenticated Principal */
+    public const string PRINCIPAL = '_principal';
+    /** set by the Kernel when routing failed (404, 405, bad host); answered after the middleware chain ran */
+    public const string ROUTING_ERROR = '_routing_error';
 
     private function __construct() {}
 }

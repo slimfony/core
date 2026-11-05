@@ -15,5 +15,6 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - Observability: `MetricsRegistry` with boot-time declared `Counter`/`Histogram`, `ApcuStorage`, `MetricsMiddleware`, protected `MetricsController` (Prometheus text format).
 - Health: `LivenessController` (`/healthz`), `ReadinessController` (`/readyz`, cached), `ReadinessCheck`, `DatabaseReadinessCheck`.
 - `ConnectionLifecycle` can count leaked transactions (`db_transactions_leaked_total`).
+- Auth: `Authenticator` contract, `Principal`, `AuthMiddleware` (deny by default, `_public`, `_scopes`). The Kernel now matches the route before the middleware chain runs, so middleware sees the matched route and its defaults; routing failures are still answered through the chain.
 - Exception hierarchy: `SlimfonyException`, `ConfigurationException`, `BuildException`, `HttpException`.
 - CI: PHP 8.4 and 8.5, real PostgreSQL, FrankenPHP worker smoke test, Codecov, weekly outdated check.

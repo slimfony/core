@@ -80,6 +80,8 @@ final class Kernel
 
     public function handle(Request $request): Response
     {
+        $this->route($request); // before the middleware chain, so middleware can see the matched route and its defaults
+
         try {
             return ($this->chain)($request);
         } catch (\Throwable $e) { // a middleware itself failed
@@ -97,17 +99,31 @@ final class Kernel
         $resetter->reset();
     }
 
-    private function dispatch(Request $request): Response
+    /**
+     * Puts the matched route (name, controller, parameters, defaults) into the request attributes. A routing failure is
+     * stored, not thrown, so that it is answered at the end of the chain: middleware still runs (request id, metrics,
+     * security headers, authentication) for requests that match nothing.
+     */
+    private function route(Request $request): void
     {
         try {
             $this->matcher->getContext()->fromRequest($request);
-            $controllerId = null;
             foreach ($this->matcher->matchRequest($request) as $key => $value) {
-                if (Attributes::CONTROLLER === $key) {
-                    $controllerId = $value;
-                }
                 $request->attributes->set((string) $key, $value);
             }
+        } catch (\Throwable $e) {
+            $request->attributes->set(Attributes::ROUTING_ERROR, $e);
+        }
+    }
+
+    private function dispatch(Request $request): Response
+    {
+        try {
+            $routingError = $request->attributes->get(Attributes::ROUTING_ERROR);
+            if ($routingError instanceof \Throwable) {
+                throw $routingError;
+            }
+            $controllerId = $request->attributes->get(Attributes::CONTROLLER);
             if (!\is_string($controllerId)) {
                 throw new ConfigurationException('Matched route has no controller.');
             }
