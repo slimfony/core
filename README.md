@@ -22,6 +22,10 @@ A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is 
 
 It is the base for our own services, not a library for arbitrary apps: every service owns its dependency tree and commits its own `composer.lock`. Rules and scope: [GUIDELINES.md](GUIDELINES.md).
 
+## Demo
+
+[slimfony/demo](https://github.com/slimfony/demo) is a complete service built on this core: FrankenPHP in worker mode, PostgreSQL behind PgBouncer, NATS, Prometheus and Grafana, started with one `docker compose up`. It shows the core running under load, with live metrics, health checks and the production container settings.
+
 ## Quickstart
 
 Install it into your service:
