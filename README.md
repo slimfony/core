@@ -30,7 +30,9 @@ Install it into your service:
 composer require slimfony/core
 ```
 
-and map your application namespace in the service's `composer.json`:
+The core replaces the polyfill packages that PHP 8.4 makes redundant (`ctype`, `mbstring`, `php80`, `php81`, `php84`), so your service gets a slim `vendor/` without doing anything; do not add a `replace` block for them yourself.
+
+Map your application namespace in the service's `composer.json`:
 
 ```json
 {

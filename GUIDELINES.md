@@ -4,7 +4,7 @@ Binding rules for every change. If a change breaks one, it needs a written reaso
 
 ## 1. Dependencies (slim vendor)
 - **Deployment model:** slimfony/core is the base of our own microservices, not a shared library for third-party apps. Each service owns its whole dependency tree and commits its own `composer.lock`. So there is no compatibility matrix: only PHP >= 8.4 and the **latest stable** release of every package (runtime and dev). Constraints are floors at the current release (`^MAJOR.MINOR` of what is installed). When choosing a constraint, check `composer outdated` / the package page; never copy versions from memory or old plans.
-- `composer.lock` is not committed here (CI always resolves the newest); services commit theirs and carry the polyfill `replace` block.
+- `composer.lock` is not committed here (CI always resolves the newest); services commit theirs. The core itself `replace`s the polyfills that PHP 8.4 makes redundant (`ctype`, `mbstring`, `php80`, `php81`, `php84`) and that applies to every service that installs it, so a service must not repeat the block (two packages replacing the same polyfill cannot coexist).
 - A new package in `require` needs a justification in the PR: what it does, why ~50 lines of our own code or a PHP built-in do not.
 - Prefer, in order: PHP built-in -> already-installed package -> own code -> new package.
 - No polyfills (PHP >= 8.4). Required extensions are declared as `ext-*`.
