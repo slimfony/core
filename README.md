@@ -430,8 +430,8 @@ Other environments, p95 in microseconds:
 The same scenarios without opcache (the CLI default) are two to three times slower. Runner hardware varies, which is why the CI guard sits at 250 µs, ten times the usual result. These numbers are the overhead of the core, not an end-to-end throughput claim; end-to-end load tests with k6 belong to the demo.
 ## Roadmap
 
-1. **`slimfony/demo`**: a complete reference microservice built on the core (Docker, Caddyfile, Kubernetes manifests, PostgreSQL) with a serious load benchmark (k6, target in the range of 10k requests/s) and published results.
-2. Async: transactional outbox and NATS integration, shown in the demo.
+1. **[slimfony/demo](https://github.com/slimfony/demo)** is released (v0.1.0): a complete reference service on the core with Docker, PostgreSQL, NATS (transactional outbox, importers), Prometheus and Grafana. Still to come there: a serious load benchmark (k6, target in the range of 10k requests/s) with published results, Kubernetes manifests and a template repository.
+2. **Core 0.4.0**, from what the demo showed under load: worker GC handling (collect after the response, GC metrics), no 401 from `JwksKeyProvider` while another thread is still loading the keys on a cold start, metrics for command line processes, and a counter for retries that ran out.
 
 ## Development
 
