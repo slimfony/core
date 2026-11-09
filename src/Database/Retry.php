@@ -36,6 +36,9 @@ final class Retry
      * @param (\Closure(int): void)|null $sleep   microseconds; defaults to usleep
      * @param Counter|null                $retries counts every retry that is actually made; it must declare exactly one
      *                                             label, whose value is REASON_CONNECTION_LOST or REASON_RETRYABLE
+     * @param Counter|null                $exhausted counts the operations that failed even after all attempts (same single label):
+     *                                             the failures a retry could not save, the ones worth an alert
+     * @param int                         $backoffMicros the pause before attempt n+1 is a random time between 1 ms and n times this
      */
     public function __construct(
         private readonly Connection $connection,
@@ -43,6 +46,8 @@ final class Retry
         private int $maxAttempts = 3 { set => $value >= 1 ? $value : throw new \InvalidArgumentException('maxAttempts must be at least 1.'); },
         ?\Closure $sleep = null,
         private readonly ?Counter $retries = null,
+        private readonly ?Counter $exhausted = null,
+        private int $backoffMicros = 20_000 { set => $value >= 1_000 ? $value : throw new \InvalidArgumentException('backoffMicros must be at least 1000.'); },
     ) {
         $this->sleep = $sleep ?? usleep(...);
     }
@@ -89,20 +94,27 @@ final class Retry
                 return $once();
             } catch (ConnectionLost $e) {
                 $this->connection->close(); // forces a clean reconnect and resets DBAL's transaction state
-                if (!$retryConnectionLoss || $attempt >= $this->maxAttempts) {
+                if (!$retryConnectionLoss) {
+                    throw $e;
+                }
+                if ($attempt >= $this->maxAttempts) {
+                    $this->exhausted?->inc([self::REASON_CONNECTION_LOST]);
+
                     throw $e;
                 }
                 $this->retries?->inc([self::REASON_CONNECTION_LOST]);
                 $this->logger?->warning('Database connection lost, retrying', ['attempt' => $attempt]);
             } catch (RetryableException $e) {
                 if ($attempt >= $this->maxAttempts) {
+                    $this->exhausted?->inc([self::REASON_RETRYABLE]);
+
                     throw $e;
                 }
                 $this->retries?->inc([self::REASON_RETRYABLE]);
                 $this->logger?->warning('Retryable database error, retrying transaction', ['attempt' => $attempt, 'error' => $e::class]);
             }
 
-            ($this->sleep)(random_int(1_000, 20_000 * $attempt)); // jitter
+            ($this->sleep)(random_int(1_000, $this->backoffMicros * $attempt)); // jitter
         }
     }
 }

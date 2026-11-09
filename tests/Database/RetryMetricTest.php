@@ -24,6 +24,7 @@ final class RetryMetricTest extends TestCase
             TestDb::connection(),
             sleep: static function (int $micros): void {},
             retries: $registry->counter('db_retries_total', 'Database retries.', ['reason']),
+            exhausted: $registry->counter('db_retries_exhausted_total', 'Operations that failed after all attempts.', ['reason']),
         );
     }
 
@@ -60,7 +61,9 @@ final class RetryMetricTest extends TestCase
                 throw new DeadlockException(new FakeDriverException('deadlock'), null);
             });
         } finally {
-            self::assertStringContainsString('db_retries_total{reason="retryable"} 2', $registry->render(), '3 attempts are 2 retries');
+            $out = $registry->render();
+            self::assertStringContainsString('db_retries_total{reason="retryable"} 2', $out, '3 attempts are 2 retries');
+            self::assertStringContainsString('db_retries_exhausted_total{reason="retryable"} 1', $out);
         }
     }
 }
