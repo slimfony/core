@@ -13,6 +13,23 @@ A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is 
 
 > **Status:** v0.3.0, pre-1.0. Only classes marked `@api` are covered by SemVer, and even those may still change before 1.0.
 
+**Contents**
+
+- [Why](#why)
+- [Demo](#demo)
+- [Quickstart](#quickstart)
+- [Production](#production)
+- [Database](#database)
+- [Metrics and health](#metrics-and-health)
+- [Authentication](#authentication)
+- [Consumers and jobs (without HTTP)](#consumers-and-jobs-without-http)
+- [What is in the box](#what-is-in-the-box)
+- [Worker mode pitfalls](#worker-mode-pitfalls)
+- [Performance](#performance)
+- [Roadmap](#roadmap)
+- [Development](#development)
+- [License](#license)
+
 ## Why
 
 - **Fast:** nothing is computed per request that can be done at build or boot (container, router, middleware chain).

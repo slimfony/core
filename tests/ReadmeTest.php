@@ -94,4 +94,17 @@ final class ReadmeTest extends TestCase
         self::assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
         self::assertSame(405, $kernel->handle(Request::create('/hello/world', 'POST'))->getStatusCode());
     }
+
+    public function testTheContentsListPointsAtRealHeadingsAndMissesNone(): void
+    {
+        $readme = (string) file_get_contents(self::README);
+        preg_match('/^\*\*Contents\*\*\n\n((?:- \[.*\n)+)/m', $readme, $list);
+        self::assertNotEmpty($list, 'the README has no contents list');
+        preg_match_all('/^- \[(.+?)\]\(#(.+?)\)$/m', $list[1], $items, \PREG_SET_ORDER);
+
+        preg_match_all('/^## (.+)$/m', $readme, $headings);
+        $slug = static fn(string $heading): string => str_replace(' ', '-', (string) preg_replace('/[^a-z0-9 -]/', '', strtolower($heading)));
+
+        self::assertSame(array_map($slug, $headings[1]), array_column($items, 2), 'the contents list must name every section, in order, with working anchors');
+    }
 }
