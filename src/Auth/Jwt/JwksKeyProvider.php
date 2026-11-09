@@ -16,6 +16,8 @@ use Slimfony\Core\Exception\ConfigurationException;
  *   request never parses a key or touches the network.
  * - A key id that is not known triggers a refetch (the provider rotated its keys), at most once per
  *   $minRefetchSeconds, so an attacker sending random key ids cannot make the service hammer the provider.
+ * - A worker that starts with nothing while another thread is fetching the first document waits for it (up to
+ *   $coldStartWaitSeconds) instead of failing its first requests. warmUp() does this at boot.
  * - If the provider is unreachable the keys already loaded keep working (stale if error).
  * - Only https endpoints, a 3 second timeout and a 256 KiB size limit by default.
  *
@@ -45,6 +47,7 @@ final class JwksKeyProvider implements KeyProvider
         private int $ttlSeconds = 600 { set => $value >= 1 ? $value : throw new \InvalidArgumentException('ttlSeconds must be at least 1.'); },
         private int $minRefetchSeconds = 30 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('minRefetchSeconds must not be negative.'); },
         private readonly string $cachePrefix = 'slimfony_jwks:',
+        private float $coldStartWaitSeconds = 3.0 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('coldStartWaitSeconds must not be negative.'); },
         ?\Closure $fetch = null,
         ?\Closure $now = null,
     ) {
@@ -56,6 +59,16 @@ final class JwksKeyProvider implements KeyProvider
         }
         $this->fetch = $fetch ?? self::download(...);
         $this->now = $now ?? static fn(): float => microtime(true);
+    }
+
+    /**
+     * Loads the keys now (at worker start), so the first request does not wait for the provider.
+     */
+    public function warmUp(): void
+    {
+        if ([] === $this->keys) {
+            $this->load(($this->now)(), false);
+        }
     }
 
     #[\Override]
@@ -100,8 +113,22 @@ final class JwksKeyProvider implements KeyProvider
             } finally {
                 apcu_delete($this->cachePrefix . 'lock');
             }
-        } elseif ([] === $this->keys && \is_array($shared) && \is_string($shared['json'] ?? null)) {
-            $this->adopt($shared['json'], $now);
+        } elseif ([] === $this->keys) {
+            $this->adoptWhenPublished($shared, $now);
+        }
+    }
+
+    /**
+     * Another thread is fetching and this one has nothing: wait for the document (bounded), or take an expired one.
+     */
+    private function adoptWhenPublished(mixed $shared, float $start): void
+    {
+        while (!(\is_array($shared) && \is_string($shared['json'] ?? null)) && ($this->now)() - $start < $this->coldStartWaitSeconds) {
+            usleep(20_000);
+            $shared = apcu_fetch($this->cachePrefix . 'doc');
+        }
+        if (\is_array($shared) && \is_string($shared['json'] ?? null)) {
+            $this->adopt($shared['json'], $start);
         }
     }
 

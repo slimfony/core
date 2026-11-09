@@ -6,8 +6,10 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ### Added
 - `WorkerRunner` `deferGc`: the cycle collector is off while a request is handled and runs between requests (when `gcRootsThreshold` possible cycles have piled up), so no response pays for it. Optional counters `gcRuns` and `gcCollected`.
+- `JwksKeyProvider::warmUp()`: loads the keys at worker start.
 
 ### Fixed
+- `JwksKeyProvider`: a worker that starts while another thread fetches the first JWKS document waits for it (`coldStartWaitSeconds`, 3 s) instead of failing its first requests with 401.
 - `WorkerRunner` in FrankenPHP's classic mode (no worker script): `frankenphp_handle_request()` exists there and throws, so the runner now serves the one request instead of failing.
 
 ## [0.3.0] - 2026-11-05

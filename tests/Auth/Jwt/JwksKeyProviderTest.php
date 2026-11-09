@@ -111,4 +111,35 @@ final class JwksKeyProviderTest extends TestCase
 
         new JwksKeyProvider('http://idp.example.test/jwks.json', cachePrefix: $this->prefix);
     }
+    public function testAWorkerThatStartsWhileAnotherThreadIsFetchingWaitsForTheDocumentInsteadOfFailing(): void
+    {
+        $keys = JwtKeys::generate('ES256');
+        $endpoint = new FakeJwksEndpoint([$keys]);
+        apcu_add($this->prefix . 'lock', 1, 10); // the other thread is fetching
+        $calls = 0;
+        $prefix = $this->prefix;
+        $now = static function () use (&$calls, $prefix, $endpoint): float {
+            if (3 === ++$calls) { // the other thread finishes while we wait
+                apcu_store($prefix . 'doc', ['json' => ($endpoint)('x'), 'at' => 1000.0]);
+            }
+
+            return 1000.0 + $calls * 0.01;
+        };
+        $provider = new JwksKeyProvider(self::URI, cachePrefix: $this->prefix, fetch: static fn(): string => throw new \LogicException('not the fetching thread'), now: $now);
+
+        self::assertNotNull($provider->keyFor('k1'));
+    }
+
+    public function testWarmUpLoadsTheKeysBeforeTheFirstRequest(): void
+    {
+        $endpoint = new FakeJwksEndpoint([JwtKeys::generate('ES256')]);
+        $provider = new JwksKeyProvider(self::URI, cachePrefix: $this->prefix, fetch: $endpoint(...));
+
+        $provider->warmUp();
+        $provider->warmUp();
+
+        self::assertSame(1, $endpoint->requests);
+        self::assertNotNull($provider->keyFor('k1'));
+        self::assertSame(1, $endpoint->requests);
+    }
 }
