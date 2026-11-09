@@ -6,6 +6,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ### Added
 - `WorkerRunner` `deferGc`: the cycle collector is off while a request is handled and runs between requests (when `gcRootsThreshold` possible cycles have piled up), so no response pays for it. Optional counters `gcRuns` and `gcCollected`.
+- `Observability\ProcessMetricsEndpoint`: lets Prometheus read the metrics of a command line process (relay, consumer) over a tiny non-blocking `GET /metrics` listener, polled between units of work; access is decided by `MetricsController`.
 - `JwksKeyProvider::warmUp()`: loads the keys at worker start.
 
 ### Fixed
