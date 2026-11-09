@@ -11,7 +11,7 @@
 
 A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is built from a few Symfony components, compiled once at build time, and keeps no state between requests.
 
-> **Status:** v0.3.0, pre-1.0. Only classes marked `@api` are covered by SemVer, and even those may still change before 1.0.
+> **Status:** v0.4.0, pre-1.0. Only classes marked `@api` are covered by SemVer, and even those may still change before 1.0.
 
 **Contents**
 
@@ -470,7 +470,7 @@ The same scenarios without opcache (the CLI default) are two to three times slow
 ## Roadmap
 
 1. **[slimfony/demo](https://github.com/slimfony/demo)** is released: a complete reference service on the core with Docker, PostgreSQL, NATS (transactional outbox, importers), Prometheus, Grafana, Kubernetes manifests and published k6 load results. A small starter template without the demo's domain is planned.
-2. **Core 0.4.0** is next: deferred worker GC with metrics, no 401 from `JwksKeyProvider` while another thread loads the keys on a cold start, metrics for command line processes, and a counter for retries that ran out.
+2. **Core 0.5.0**, if the demo review shows the need: the effect of deferred GC measured under k6 (for the "Sizing" chapter), and fewer APCu operations per request in the metrics middleware.
 
 ## Development
 
