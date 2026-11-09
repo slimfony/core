@@ -6,14 +6,22 @@ namespace Slimfony\Core\Worker;
 
 use Psr\Log\LoggerInterface;
 use Slimfony\Core\Kernel;
+use Slimfony\Core\Observability\Counter;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * FrankenPHP worker loop. Exits (FrankenPHP then restarts the script) when the server asks for it,
  * after $maxRequests requests, above $maxMemoryBytes, or if a state reset fails (state is unknown: fail fast).
- * Without FrankenPHP it serves exactly one request, so it works as a plain front controller too.
+ * Without FrankenPHP, and in FrankenPHP's classic mode (no worker script), it serves exactly one request, so it works
+ * as a plain front controller too.
  *
  * Signals are not handled here: FrankenPHP/Caddy own SIGTERM and make the handler function return false.
+ *
+ * Garbage collection: PHP runs its cycle collector by itself, when enough possible cycles have piled up, and a request that
+ * happens to be the one at that moment pays for it (a latency spike in the high percentiles). With `$deferGc` the collector
+ * is switched off while a request is handled and runs between requests instead, after the response is sent, when the number of
+ * possible cycles reaches `$gcRootsThreshold` (PHP's own default trigger) or every `$gcEvery` requests. The cost is the same,
+ * it is just no longer in anybody's response time. Pass counters to see how often it runs and what it frees.
  *
  * @api
  */
@@ -30,6 +38,10 @@ final class WorkerRunner
      * @param int                                     $maxRequests     0 = unlimited
      * @param int                                     $gcEvery         gc_collect_cycles() every N requests, 0 = rely on PHP
      * @param int                                     $maxMemoryBytes  0 = off
+     * @param bool                                    $deferGc         run the cycle collector between requests instead of during them
+     * @param int                                     $gcRootsThreshold with $deferGc: collect when this many possible cycles have piled up
+     * @param Counter|null                            $gcRuns          counts the collector's runs (PHP's own and ours)
+     * @param Counter|null                            $gcCollected     counts the cycles it freed
      */
     public function __construct(
         private readonly Kernel $kernel,
@@ -39,15 +51,46 @@ final class WorkerRunner
         private int $maxRequests = 0 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('maxRequests must not be negative.'); },
         private int $gcEvery = 0 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('gcEvery must not be negative.'); },
         private int $maxMemoryBytes = 0 { set => $value >= 0 ? $value : throw new \InvalidArgumentException('maxMemoryBytes must not be negative.'); },
+        private readonly bool $deferGc = false,
+        private int $gcRootsThreshold = 10_000 { set => $value >= 1 ? $value : throw new \InvalidArgumentException('gcRootsThreshold must be at least 1.'); },
+        private readonly ?Counter $gcRuns = null,
+        private readonly ?Counter $gcCollected = null,
     ) {
-        $this->handleRequest = $handleRequest ?? (\function_exists('frankenphp_handle_request')
-            ? \Closure::fromCallable('frankenphp_handle_request')
-            : static function (callable $handler): bool {
-                $handler();
-
-                return false;
-            });
+        $this->handleRequest = $handleRequest ?? self::frankenphpOrOnce();
         $this->requestFactory = $requestFactory ?? Request::createFromGlobals(...);
+    }
+
+    /**
+     * The handler function of FrankenPHP's worker mode when there is one; otherwise (no FrankenPHP, or its classic mode) a
+     * function that serves exactly one request.
+     *
+     * FrankenPHP defines `frankenphp_handle_request()` in its classic mode too, where calling it throws; so the existence of the
+     * function says nothing about the mode, and the exception is the only signal there is.
+     *
+     * @return \Closure(callable(): void): bool
+     */
+    private static function frankenphpOrOnce(): \Closure
+    {
+        $once = static function (callable $handler): bool {
+            $handler();
+
+            return false;
+        };
+        if (!\function_exists('frankenphp_handle_request')) {
+            return $once;
+        }
+
+        return static function (callable $handler) use ($once): bool {
+            try {
+                return frankenphp_handle_request($handler);
+            } catch (\RuntimeException $e) {
+                if (!str_contains($e->getMessage(), 'not in worker mode')) {
+                    throw $e;
+                }
+
+                return $once($handler); // classic mode: this script run is the one request
+            }
+        };
     }
 
     public function run(): void
@@ -55,7 +98,25 @@ final class WorkerRunner
         ignore_user_abort(true);
         $handler = $this->serve(...);
         $served = 0;
+        $collectorWasOn = gc_enabled();
+        if ($this->deferGc) {
+            gc_disable();
+        }
 
+        try {
+            $this->loop($handler, $served);
+        } finally {
+            if ($this->deferGc && $collectorWasOn) {
+                gc_enable();
+            }
+        }
+    }
+
+    /**
+     * @param \Closure(): void $handler
+     */
+    private function loop(\Closure $handler, int &$served): void
+    {
         do {
             $keepRunning = ($this->handleRequest)($handler);
             ++$served;
@@ -68,10 +129,32 @@ final class WorkerRunner
                 return;
             }
 
-            if ($this->gcEvery > 0 && 0 === $served % $this->gcEvery) {
-                gc_collect_cycles();
-            }
+            $this->collectGarbageIfDue($served);
         } while ($keepRunning && !$this->mustStop($served));
+    }
+
+    private int $seenRuns = 0;
+    private int $seenCollected = 0;
+
+    private function collectGarbageIfDue(int $served): void
+    {
+        $due = ($this->gcEvery > 0 && 0 === $served % $this->gcEvery)
+            || ($this->deferGc && gc_status()['roots'] >= $this->gcRootsThreshold);
+        if ($due) {
+            gc_collect_cycles();
+        }
+
+        if (null !== $this->gcRuns || null !== $this->gcCollected) { // report what the collector did since the last look, whoever started it
+            $status = gc_status();
+            if ($status['runs'] > $this->seenRuns) {
+                $this->gcRuns?->inc(by: $status['runs'] - $this->seenRuns);
+            }
+            if ($status['collected'] > $this->seenCollected) {
+                $this->gcCollected?->inc(by: $status['collected'] - $this->seenCollected);
+            }
+            $this->seenRuns = $status['runs'];
+            $this->seenCollected = $status['collected'];
+        }
     }
 
     private function serve(): void
