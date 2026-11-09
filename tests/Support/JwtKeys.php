@@ -45,7 +45,7 @@ final readonly class JwtKeys
 
         $jwk = $rsa
             ? ['kty' => 'RSA', 'n' => self::part($details['rsa'] ?? null, 'n'), 'e' => self::part($details['rsa'] ?? null, 'e')]
-            : ['kty' => 'EC', 'crv' => 'P-256', 'x' => self::part($details['ec'] ?? null, 'x'), 'y' => self::part($details['ec'] ?? null, 'y')];
+            : ['kty' => 'EC', 'crv' => 'P-256', 'x' => self::part($details['ec'] ?? null, 'x', 32), 'y' => self::part($details['ec'] ?? null, 'y', 32)];
 
         return new self($algorithm, $keyId, $private, new Key($details['key'], $algorithm), $jwk, $details['key']);
     }
@@ -58,10 +58,11 @@ final readonly class JwtKeys
         return JWT::encode($claims, $this->signingKey, $this->algorithm, $withKeyId ? ($keyId ?? $this->keyId) : null);
     }
 
-    private static function part(mixed $group, string $name): string
+    /** OpenSSL drops leading zero bytes of a coordinate; a JWK needs the full length ($pad), or about 1 key in 60 is invalid */
+    private static function part(mixed $group, string $name, int $pad = 0): string
     {
         return \is_array($group) && \is_string($group[$name] ?? null)
-            ? JWT::urlsafeB64Encode($group[$name])
+            ? JWT::urlsafeB64Encode(str_pad($group[$name], $pad, "\0", \STR_PAD_LEFT))
             : throw new \RuntimeException(\sprintf('OpenSSL key details lack "%s".', $name));
     }
 }
