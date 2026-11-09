@@ -23,6 +23,8 @@ A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is 
 - [Metrics and health](#metrics-and-health)
 - [Authentication](#authentication)
 - [Consumers and jobs (without HTTP)](#consumers-and-jobs-without-http)
+- [Reliable processing](#reliable-processing)
+- [Sizing](#sizing)
 - [What is in the box](#what-is-in-the-box)
 - [Worker mode pitfalls](#worker-mode-pitfalls)
 - [Performance](#performance)
@@ -392,6 +394,26 @@ new ConsumerRunner($kernel, maxMessages: 10_000)->run(static function () use ($q
 ```
 
 Tag log lines of a message with `RequestContext::start($requestId, $traceId)`, the same way the request id middleware does for a request. The metrics of such a process live in its own memory: give it a `Storage` that is shared with whatever serves `/metrics`.
+`ProcessMetricsEndpoint` lets Prometheus scrape such a process, which has no web server: the loop calls `serve()` between messages, it answers at most one waiting `GET /metrics` (access is decided by `MetricsController`, so the token rules are the same) and never blocks.
+
+## Reliable processing
+
+A consumer can die at any line. These rules, in this order, make that harmless; the [demo](https://github.com/slimfony/demo) runs all of them under a chaos script that kills importers and cuts database connections.
+
+1. **Write the message with the data (outbox).** Insert the event into an `outbox` table in the same transaction as the change. A relay publishes the rows (`SELECT ... FOR UPDATE SKIP LOCKED`, so relays never fight over a row) and marks them published. There is never a state with the data but no event.
+2. **Claim work with a lease that expires.** A consumer marks a unit of work `processing` with a deadline (`claimed_until`) that is longer than the work should take. A unit whose deadline has passed is free again, so a killed consumer cannot hold work forever.
+3. **Make the handler idempotent.** Delivery is at least once: the same message arrives twice after a crash or a timeout. Key the result on the message (a unique constraint, `INSERT ... ON CONFLICT DO NOTHING`, or a status check inside the claim), so the second run changes nothing.
+4. **Sweep.** A small periodic job re-publishes outbox rows that stayed unpublished and releases claims whose deadline passed. It is the safety net for everything above; run it in the relay.
+5. **Give up visibly.** After the broker's maximum number of deliveries, mark the unit `failed` with the reason instead of retrying forever, and alert on the count (see `exhausted` of `Retry`).
+
+**Deadlocks.** Two transactions that lock the same rows in different order deadlock, and `Retry::transactional()` then re-runs the loser. That is correct but wasteful under load. Prevention is cheaper: lock rows in one agreed order (for example `ORDER BY id` in the statement that locks them, or sort the keys before a batch of upserts). In the demo's import benchmark this alone took 1000 files with 8 importers from 67 s to 13.9 s. If a deadlock does happen, PostgreSQL waits `deadlock_timeout` (1 s by default) before it checks for one; the waiting transaction is stuck for that long. For workloads with short transactions, `deadlock_timeout` of 200 ms to 500 ms is a reasonable trade, but keep `Retry`'s attempts small: it is a net, not a strategy.
+
+## Sizing
+
+- **Workers.** A worker thread waits for the database and other services most of its time, so a worker count equal to the cores leaves the CPU idle. Start with two to four times the cores (`num_threads` in FrankenPHP's `frankenphp` block, `max_threads` for bursts) and raise it while throughput grows; stop when the database, not PHP, is the limit. In the demo, 16 workers served about 12,400 authenticated reads per second where 4 served about 6,500. Remember the other side of the pool: workers per pod times pods must stay below the database's (or PgBouncer's) connection limit.
+- **Garbage collection.** PHP collects reference cycles by itself when enough have piled up, and the request that happens to be at that point pays for it, which shows in the highest percentiles. `new WorkerRunner(..., deferGc: true)` switches the collector off while a request is handled and runs it between requests instead, so the cost stays but leaves every response time. Pass counters (`gcRuns:`, `gcCollected:`) to see how often it runs and what it frees. `MAX_REQUESTS` stays as the guard against anything that leaks.
+- **No worker script.** In FrankenPHP's classic mode `frankenphp_handle_request()` exists but throws; `WorkerRunner` notices and serves the single request, so the same `index.php` runs in both modes (slowly in the classic one: the demo measures worker mode more than ten times faster).
+
 ## What is in the box
 
 | Component | What it does |

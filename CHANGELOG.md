@@ -10,6 +10,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - `Retry` counts the operations that failed after all attempts in an optional second counter (`exhausted`, same `reason` label), and the pause between attempts is configurable (`backoffMicros`).
 - `JwksKeyProvider::warmUp()`: loads the keys at worker start.
 
+### Documentation
+- README: chapters on reliable processing (outbox, leases, idempotent handlers, sweeper, deadlock prevention) and sizing (workers per core, garbage collection, classic mode).
+
 ### Fixed
 - `JwksKeyProvider`: a worker that starts while another thread fetches the first JWKS document waits for it (`coldStartWaitSeconds`, 3 s) instead of failing its first requests with 401.
 - `WorkerRunner` in FrankenPHP's classic mode (no worker script): `frankenphp_handle_request()` exists there and throws, so the runner now serves the one request instead of failing.
