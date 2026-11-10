@@ -26,7 +26,7 @@ final class CompilationCache
         if (!$container instanceof ContainerBuilder) {
             throw new BuildException('Only a freshly compiled container can be stored.');
         }
-        if (!is_dir($this->directory) && !mkdir($this->directory, 0o755, true) && !is_dir($this->directory)) {
+        if (!is_dir($this->directory) && !@mkdir($this->directory, 0o755, true) && !is_dir($this->directory)) {
             throw new BuildException(\sprintf('Cannot create cache directory "%s".', $this->directory));
         }
 

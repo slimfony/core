@@ -470,7 +470,7 @@ The same scenarios without opcache (the CLI default) are two to three times slow
 ## Roadmap
 
 1. **[slimfony/demo](https://github.com/slimfony/demo)** is released: a complete reference service on the core with Docker, PostgreSQL, NATS (transactional outbox, importers), Prometheus, Grafana, Kubernetes manifests and published k6 load results. A small starter template without the demo's domain is planned.
-2. **Core 0.5.0**, if the demo review shows the need: the effect of deferred GC measured under k6 (for the "Sizing" chapter), and fewer APCu operations per request in the metrics middleware.
+2. **Core 0.5.0**, from the review of the core (security and quality), two small hardenings: a warning when the body size limit is used without a limit at the edge (it only sees a declared `Content-Length`, not a chunked body), and masking of `Bearer ...` values in logged exception messages (today only passwords inside URLs are masked).
 
 ## Development
 

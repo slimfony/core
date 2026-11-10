@@ -114,4 +114,14 @@ final class JsonStdoutLoggerTest extends TestCase
         self::assertSame('4bf92f3577b34da6a3ce929d0e0e4736', $inside['trace_id']);
         self::assertArrayNotHasKey('request_id', self::decode($lines, 1), 'ids must not leak into the next request');
     }
+    public function testABrokenLogPipeNeverBreaksTheRequest(): void
+    {
+        $logger = new JsonStdoutLogger(sink: static function (string $line): void {
+            throw new \RuntimeException('the pipe is closed');
+        });
+
+        $logger->error('something happened');
+
+        $this->addToAssertionCount(1); // reaching this line is the point: no exception came out of the logger
+    }
 }

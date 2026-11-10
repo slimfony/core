@@ -7,6 +7,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 ### Changed
 - `Histogram` no longer stores a separate count: it is the sum of the buckets when the metrics are rendered (one APCu write less per observation, and the cumulative buckets can never be ahead of the count within one scrape). Not measurable in the benchmark, so it is a simplification, not a speed-up. A count key that an older version left in APCu is ignored.
 
+### Fixed
+- `JwksKeyProvider` and `CompilationCache` no longer let PHP write a warning for a failure they already report by an exception (an unreachable key provider, a cache directory that cannot be created).
+
 ### Documentation
 - README "Sizing": the garbage collector never ran in the demo's load, with or without `deferGc`; it is insurance for code that builds reference cycles.
 
@@ -17,6 +20,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - `Observability\ProcessMetricsEndpoint`: lets Prometheus read the metrics of a command line process (relay, consumer) over a tiny non-blocking `GET /metrics` listener, polled between units of work; access is decided by `MetricsController`.
 - `Retry` counts the operations that failed after all attempts in an optional second counter (`exhausted`, same `reason` label), and the pause between attempts is configurable (`backoffMicros`).
 - `JwksKeyProvider::warmUp()`: loads the keys at worker start.
+
+### Fixed
+- `JwksKeyProvider` and `CompilationCache` no longer let PHP write a warning for a failure they already report by an exception (an unreachable key provider, a cache directory that cannot be created).
 
 ### Documentation
 - README: chapters on reliable processing (outbox, leases, idempotent handlers, sweeper, deadlock prevention) and sizing (workers per core, garbage collection, classic mode).

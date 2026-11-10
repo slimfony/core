@@ -142,4 +142,52 @@ final class JwksKeyProviderTest extends TestCase
         self::assertNotNull($provider->keyFor('k1'));
         self::assertSame(1, $endpoint->requests);
     }
+    public function testAnotherWorkerUsesTheDocumentThatIsAlreadySharedInsteadOfAskingTheProviderAgain(): void
+    {
+        $endpoint = new FakeJwksEndpoint([JwtKeys::generate('ES256')]);
+        $first = new JwksKeyProvider(self::URI, cachePrefix: $this->prefix, fetch: $endpoint(...));
+        $second = new JwksKeyProvider(self::URI, cachePrefix: $this->prefix, fetch: $endpoint(...));
+
+        self::assertNotNull($first->keyFor('k1'));
+        self::assertNotNull($second->keyFor('k1'));
+
+        self::assertSame(1, $endpoint->requests, 'the second worker read the shared document');
+    }
+
+    public function testAWorkerThatStartsWhileTheProviderIsDownTakesTheExpiredSharedDocument(): void
+    {
+        $endpoint = new FakeJwksEndpoint([JwtKeys::generate('ES256')]);
+        $clock = new TestClock(1000.0);
+        $first = new JwksKeyProvider(self::URI, ttlSeconds: 600, cachePrefix: $this->prefix, fetch: $endpoint(...), now: $clock(...));
+        self::assertNotNull($first->keyFor('k1'));
+
+        $endpoint->down = true;
+        $clock->now = 1000.0 + 601; // the shared document has expired and the provider does not answer
+        $second = new JwksKeyProvider(self::URI, ttlSeconds: 600, cachePrefix: $this->prefix, fetch: $endpoint(...), now: $clock(...));
+
+        self::assertNotNull($second->keyFor('k1'), 'an expired document is better than none');
+    }
+
+    public function testKeysThatCannotBeAddressedOrAreForEncryptionAreIgnored(): void
+    {
+        $keys = JwtKeys::generate('ES256');
+        $document = (string) json_encode(['keys' => [
+            $keys->jwk, // no kid: nobody can ask for it
+            ['kid' => 'for-encryption', 'use' => 'enc'] + $keys->jwk,
+            ['kid' => 'k1'] + $keys->jwk,
+        ]]);
+        $provider = new JwksKeyProvider(self::URI, cachePrefix: $this->prefix, fetch: static fn(): string => $document);
+
+        self::assertNotNull($provider->keyFor('k1'));
+        self::assertNull($provider->keyFor('for-encryption'));
+    }
+
+    public function testAnUnreachableProviderOverHttpsGivesNoKeyAndALoggedWarning(): void
+    {
+        $logger = new RecordingLogger();
+        $provider = new JwksKeyProvider('https://127.0.0.1:9/jwks.json', $logger, cachePrefix: $this->prefix); // the default download: nothing listens on port 9
+
+        self::assertNull($provider->keyFor('k1'));
+        self::assertStringStartsWith('warning: JWKS refresh failed', $logger->records[0]);
+    }
 }

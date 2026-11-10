@@ -156,7 +156,7 @@ final class JwksKeyProvider implements KeyProvider
     private static function download(string $uri): string
     {
         $context = stream_context_create(['http' => ['timeout' => 3, 'follow_location' => 0], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
-        $body = file_get_contents($uri, false, $context, 0, self::MAX_BYTES);
+        $body = @file_get_contents($uri, false, $context, 0, self::MAX_BYTES); // a failure is reported by the exception below, not by a PHP warning in the log
 
         return false === $body ? throw new \RuntimeException('JWKS download failed.') : $body;
     }
