@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+- `Retry` handles a database failover: a server that refuses the work because it is read-only (SQLSTATE 25006, the old primary or a standby) or still starting up (57P03) is retried on a new connection, for any work, idempotent or not (the statement was refused before it ran). Counted with the reason `failover`. A connection that could not be made (`ConnectionException`) is now treated like a lost one.
+
 ### Changed
 - `Histogram` no longer stores a separate count: it is the sum of the buckets when the metrics are rendered (one APCu write less per observation, and the cumulative buckets can never be ahead of the count within one scrape). Not measurable in the benchmark, so it is a simplification, not a speed-up. A count key that an older version left in APCu is ignored.
 

@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Slimfony\Core\Database;
 
 use Doctrine\DBAL\Connection;
-use Doctrine\DBAL\Exception\ConnectionLost;
+use Doctrine\DBAL\Exception\ConnectionException;
+use Doctrine\DBAL\Exception\DriverException;
 use Doctrine\DBAL\Exception\RetryableException;
 use Psr\Log\LoggerInterface;
 use Slimfony\Core\Observability\Counter;
@@ -15,8 +16,11 @@ use Slimfony\Core\Observability\Counter;
  *
  * - Deadlock / lock timeout / serialization failure (RetryableException): the server aborted the transaction,
  *   so the WHOLE transaction callable is run again.
- * - ConnectionLost: reads always; transactions only with $idempotent = true, because a connection lost during
- *   COMMIT may or may not have committed.
+ * - Lost connection (ConnectionLost, ConnectionException): reads always; transactions only with $idempotent = true,
+ *   because a connection lost during COMMIT may or may not have committed.
+ * - A server that does not accept the work at all (SQLSTATE 25006, a read-only server: the old primary after a failover, or
+ *   a standby; 57P03, a server that is starting up or recovering): the statement was refused before anything ran, so the
+ *   work is retried on a new connection whether it is idempotent or not.
  *
  * Inside an already open transaction nothing is retried: the outermost owner decides.
  *
@@ -28,6 +32,11 @@ final class Retry
     public const string REASON_CONNECTION_LOST = 'connection_lost';
     /** value of the counter's label for a deadlock, lock timeout or serialization failure */
     public const string REASON_RETRYABLE = 'retryable';
+    /** value of the counter's label for a server that refused the work (read-only, starting up): see the class comment */
+    public const string REASON_FAILOVER = 'failover';
+
+    /** @var list<string> */
+    private const array FAILOVER_SQLSTATES = ['25006', '57P03'];
 
     /** @var \Closure(int): void */
     private readonly \Closure $sleep;
@@ -35,7 +44,7 @@ final class Retry
     /**
      * @param (\Closure(int): void)|null $sleep   microseconds; defaults to usleep
      * @param Counter|null                $retries counts every retry that is actually made; it must declare exactly one
-     *                                             label, whose value is REASON_CONNECTION_LOST or REASON_RETRYABLE
+     *                                             label, whose value is REASON_CONNECTION_LOST, REASON_RETRYABLE or REASON_FAILOVER
      * @param Counter|null                $exhausted counts the operations that failed even after all attempts (same single label):
      *                                             the failures a retry could not save, the ones worth an alert
      * @param int                         $backoffMicros the pause before attempt n+1 is a random time between 1 ms and n times this
@@ -92,29 +101,35 @@ final class Retry
         for ($attempt = 1;; ++$attempt) {
             try {
                 return $once();
-            } catch (ConnectionLost $e) {
+            } catch (ConnectionException $e) { // includes ConnectionLost
                 $this->connection->close(); // forces a clean reconnect and resets DBAL's transaction state
                 if (!$retryConnectionLoss) {
                     throw $e;
                 }
-                if ($attempt >= $this->maxAttempts) {
-                    $this->exhausted?->inc([self::REASON_CONNECTION_LOST]);
-
-                    throw $e;
-                }
-                $this->retries?->inc([self::REASON_CONNECTION_LOST]);
-                $this->logger?->warning('Database connection lost, retrying', ['attempt' => $attempt]);
+                $this->again($attempt, self::REASON_CONNECTION_LOST, $e, 'Database connection lost, retrying');
             } catch (RetryableException $e) {
-                if ($attempt >= $this->maxAttempts) {
-                    $this->exhausted?->inc([self::REASON_RETRYABLE]);
-
+                $this->again($attempt, self::REASON_RETRYABLE, $e, 'Retryable database error, retrying transaction');
+            } catch (DriverException $e) {
+                if (!\in_array($e->getSQLState(), self::FAILOVER_SQLSTATES, true)) {
                     throw $e;
                 }
-                $this->retries?->inc([self::REASON_RETRYABLE]);
-                $this->logger?->warning('Retryable database error, retrying transaction', ['attempt' => $attempt, 'error' => $e::class]);
+                $this->connection->close(); // the next attempt connects again, to whichever server is the primary by then
+                $this->again($attempt, self::REASON_FAILOVER, $e, 'The database server is not accepting writes (failover?), retrying on a new connection');
             }
 
             ($this->sleep)(random_int(1_000, $this->backoffMicros * $attempt)); // jitter
         }
+    }
+
+    /** Counts and logs a retry that is going to happen; when the attempts are used up, counts that and lets the error go. */
+    private function again(int $attempt, string $reason, \Throwable $e, string $message): void
+    {
+        if ($attempt >= $this->maxAttempts) {
+            $this->exhausted?->inc([$reason]);
+
+            throw $e;
+        }
+        $this->retries?->inc([$reason]);
+        $this->logger?->warning($message, ['attempt' => $attempt, 'error' => $e::class]);
     }
 }
