@@ -10,6 +10,7 @@ use Slimfony\Core\Observability\MetricsRegistry;
 use Slimfony\Core\Tests\Support\InMemoryStorage;
 use Slimfony\Core\Tests\Support\RecordingLogger;
 use Slimfony\Core\Tests\Support\TestKernel;
+use Slimfony\Core\Worker\GarbageCollection;
 use Slimfony\Core\Worker\WorkerRunner;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -96,7 +97,7 @@ final class WorkerRunnerTest extends TestCase
         };
 
         ob_start();
-        new WorkerRunner(TestKernel::create(), handleRequest: $server, requestFactory: static fn(): Request => Request::create('/count'), deferGc: true)->run();
+        new WorkerRunner(TestKernel::create(), handleRequest: $server, requestFactory: static fn(): Request => Request::create('/count'), gc: new GarbageCollection(deferred: true))->run();
         ob_end_clean();
 
         self::assertSame([false, false, false], $insideRequest);
@@ -125,15 +126,24 @@ final class WorkerRunnerTest extends TestCase
             TestKernel::create(),
             handleRequest: $server,
             requestFactory: static fn(): Request => Request::create('/count'),
-            deferGc: true,
-            gcRootsThreshold: 100,
-            gcRuns: $registry->counter('gc_runs_total', 'Collector runs.'),
-            gcCollected: $registry->counter('gc_collected_total', 'Cycles freed.'),
+            gc: new GarbageCollection(
+                deferred: true,
+                rootsThreshold: 100,
+                runs: $registry->counter('gc_runs_total', 'Collector runs.'),
+                collected: $registry->counter('gc_collected_total', 'Cycles freed.'),
+            ),
         )->run();
         ob_end_clean();
 
         $out = $registry->render();
         self::assertMatchesRegularExpression('/^gc_runs_total [1-9]\d*$/m', $out);
         self::assertMatchesRegularExpression('/^gc_collected_total [1-9]\d*$/m', $out);
+    }
+
+    public function testNonsenseGarbageCollectionSettingsAreRejected(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new GarbageCollection(rootsThreshold: 0);
     }
 }

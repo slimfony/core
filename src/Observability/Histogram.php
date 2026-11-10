@@ -14,6 +14,8 @@ namespace Slimfony\Core\Observability;
 final class Histogram
 {
     /**
+     * @internal create histograms with MetricsRegistry::histogram()
+     *
      * @param list<string> $labelNames
      * @param list<float>  $buckets    upper bounds in seconds, ascending
      */

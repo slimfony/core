@@ -13,6 +13,8 @@ namespace Slimfony\Core\Observability;
 final class Gauge
 {
     /**
+     * @internal create gauges with MetricsRegistry::gauge()
+     *
      * @param list<string> $labelNames
      */
     public function __construct(

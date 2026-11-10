@@ -4,6 +4,13 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Changed
+- **Breaking: `WorkerRunner` takes its garbage-collection settings as one object.** The parameters `gcEvery`, `deferGc`, `gcRootsThreshold`, `gcRuns` and `gcCollected` are replaced by `gc: new GarbageCollection(every:, deferred:, rootsThreshold:, runs:, collected:)` (see UPGRADE.md). The constructor had eleven parameters, five of them for one concern; the parameter names are part of the API, so this is the time to group them.
+- The constructors of `Counter`, `Gauge` and `Histogram` are marked `@internal`: make them with `MetricsRegistry`.
+
+### Documentation
+- `STABILITY.md` (what SemVer covers: the `@api` classes and the contracts that are not classes; what it does not; the deprecation rule; the supported versions), `UPGRADE.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue and pull request templates.
+
 ## [0.5.0] - 2026-11-10
 
 ### Added

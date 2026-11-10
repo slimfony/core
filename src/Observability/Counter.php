@@ -12,6 +12,8 @@ namespace Slimfony\Core\Observability;
 final class Counter
 {
     /**
+     * @internal create counters with MetricsRegistry::counter()
+     *
      * @param list<string> $labelNames
      */
     public function __construct(

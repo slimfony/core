@@ -11,7 +11,7 @@
 
 A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is built from a few Symfony components, compiled once at build time, and keeps no state between requests.
 
-> **Status:** v0.5.0, pre-1.0. Only classes marked `@api` are covered by SemVer, and even those may still change before 1.0.
+> **Status:** v0.5.0, pre-1.0. What is covered by SemVer, and what is not, is in [STABILITY.md](STABILITY.md); before 1.0 even that may change in a minor version, and [UPGRADE.md](UPGRADE.md) says what each change asks of your code.
 
 **Contents**
 
@@ -448,7 +448,7 @@ Not in the core, on purpose: durable retries of failed work (an outbox, a broker
 ## Sizing
 
 - **Workers.** A worker thread waits for the database and other services most of its time, so a worker count equal to the cores leaves the CPU idle. Start with two to four times the cores (`num_threads` in FrankenPHP's `frankenphp` block, `max_threads` for bursts) and raise it while throughput grows; stop when the database, not PHP, is the limit. In the demo, 16 workers served about 12,400 authenticated reads per second where 4 served about 6,500. Remember the other side of the pool: workers per pod times pods must stay below the database's (or PgBouncer's) connection limit.
-- **Garbage collection.** PHP collects reference cycles by itself when enough have piled up, and the request that happens to be at that point pays for it, which shows in the highest percentiles. `new WorkerRunner(..., deferGc: true)` switches the collector off while a request is handled and runs it between requests instead, so the cost stays but leaves every response time. Pass counters (`gcRuns:`, `gcCollected:`) to see how often it runs and what it frees. Whether it matters depends on your code: the collector starts when 10,000 possible cycles have piled up, and code that builds none never reaches that. The [demo](https://github.com/slimfony/demo) is such a service: under 8,000 authenticated requests per second (about 160,000 requests) the collector did not run once, with or without `deferGc` ([the measurement](https://github.com/slimfony/demo/tree/main/benchmarks/results/2026-11-10-gc-probe)). So `deferGc` is insurance for services that do build cycles (object graphs with parent links, closures that capture `$this` and are stored), and the counters tell you whether you are one. `MAX_REQUESTS` stays as the guard against anything that leaks.
+- **Garbage collection.** PHP collects reference cycles by itself when enough have piled up, and the request that happens to be at that point pays for it, which shows in the highest percentiles. `new WorkerRunner(..., gc: new GarbageCollection(deferred: true))` switches the collector off while a request is handled and runs it between requests instead, so the cost stays but leaves every response time. Pass counters (`runs:`, `collected:` of `GarbageCollection`) to see how often it runs and what it frees. Whether it matters depends on your code: the collector starts when 10,000 possible cycles have piled up, and code that builds none never reaches that. The [demo](https://github.com/slimfony/demo) is such a service: under 8,000 authenticated requests per second (about 160,000 requests) the collector did not run once, with or without `deferGc` ([the measurement](https://github.com/slimfony/demo/tree/main/benchmarks/results/2026-11-10-gc-probe)). So `deferGc` is insurance for services that do build cycles (object graphs with parent links, closures that capture `$this` and are stored), and the counters tell you whether you are one. `MAX_REQUESTS` stays as the guard against anything that leaks.
 - **No worker script.** In FrankenPHP's classic mode `frankenphp_handle_request()` exists but throws; `WorkerRunner` notices and serves the single request, so the same `index.php` runs in both modes (slowly in the classic one: the demo measures worker mode more than ten times faster).
 
 ## What is in the box
@@ -517,7 +517,7 @@ composer ci       # phpunit + phpstan (max) + php-cs-fixer
 composer bench    # per-request latency of the core (needs APCu with apc.enable_cli=1)
 ```
 
-The code rules are enforced by the tests; see [GUIDELINES.md](GUIDELINES.md). The code samples in this README are executed by `tests/ReadmeTest.php`, so they cannot rot.
+The code rules are enforced by the tests; see [GUIDELINES.md](GUIDELINES.md), and [CONTRIBUTING.md](CONTRIBUTING.md) for how to make a change. The code samples in this README are executed by `tests/ReadmeTest.php`, so they cannot rot.
 
 ## License
 
