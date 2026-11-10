@@ -13,6 +13,10 @@ final class Attributes
 {
     public const string REQUEST_ID = 'request_id';
     public const string TRACE_ID = 'trace_id';
+    /** the id of this service's span for the request (16 hex digits); the logger tags every line with it */
+    public const string SPAN_ID = 'span_id';
+    /** the `traceparent` header to put on every call this service makes while serving the request, so the next service continues the same trace with this request as its parent */
+    public const string TRACEPARENT = 'traceparent';
     /** set by the router: the service id of the controller */
     public const string CONTROLLER = '_controller';
     /** set by the router: the route name (also the metrics label, never the raw URL) */

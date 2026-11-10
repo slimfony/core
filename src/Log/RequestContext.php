@@ -16,11 +16,13 @@ final class RequestContext implements ResetInterface
 {
     public private(set) ?string $requestId = null;
     public private(set) ?string $traceId = null;
+    public private(set) ?string $spanId = null;
 
-    public function start(string $requestId, string $traceId): void
+    public function start(string $requestId, string $traceId, ?string $spanId = null): void
     {
         $this->requestId = $requestId;
         $this->traceId = $traceId;
+        $this->spanId = $spanId;
     }
 
     #[\Override]
@@ -28,5 +30,6 @@ final class RequestContext implements ResetInterface
     {
         $this->requestId = null;
         $this->traceId = null;
+        $this->spanId = null;
     }
 }

@@ -45,6 +45,40 @@ final class MiddlewareTest extends TestCase
         );
     }
 
+    public function testTheTraceContinuesWithANewSpanForThisServiceAndAnOutgoingTraceparent(): void
+    {
+        $attributes = [];
+        $context = new \Slimfony\Core\Log\RequestContext();
+        new RequestIdMiddleware($context)->process(
+            Request::create('/', server: ['HTTP_TRACEPARENT' => '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00']),
+            static function (Request $r) use (&$attributes, $context): Response {
+                $attributes = $r->attributes->all() + ['logged_span' => $context->spanId];
+
+                return new Response();
+            },
+        );
+
+        self::assertIsString($attributes['span_id']);
+        $span = $attributes['span_id'];
+        self::assertMatchesRegularExpression('/^[0-9a-f]{16}$/D', $span);
+        self::assertNotSame('00f067aa0ba902b7', $span, 'a new span of this service, the span of the caller is its parent');
+        self::assertSame('00-4bf92f3577b34da6a3ce929d0e0e4736-' . $span . '-00', $attributes['traceparent'], 'the same trace, the flags of the caller');
+        self::assertSame($span, $attributes['logged_span'], 'the logger tags the lines with the same span');
+    }
+
+    public function testARequestWithoutATraceparentStartsATraceThatIsSampled(): void
+    {
+        $traceparent = '';
+        new RequestIdMiddleware()->process(Request::create('/'), static function (Request $r) use (&$traceparent): Response {
+            $value = $r->attributes->get('traceparent');
+            $traceparent = \is_string($value) ? $value : '';
+
+            return new Response();
+        });
+
+        self::assertMatchesRegularExpression('/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/D', $traceparent);
+    }
+
     private static function traceIdFor(string $traceparent): string
     {
         $trace = '';

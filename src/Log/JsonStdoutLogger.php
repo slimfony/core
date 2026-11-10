@@ -10,7 +10,7 @@ use Psr\Log\LogLevel;
 /**
  * One JSON object per line on stdout (what Kubernetes and every log shipper expects).
  *
- * - request_id / trace_id are added automatically while a request is being served (see RequestContext).
+ * - request_id / trace_id / span_id are added automatically while a request is being served (see RequestContext).
  * - Context goes through ContextSanitizer: no secrets, no trace arguments.
  * - It never throws: logging must not be able to break a request.
  *
@@ -61,6 +61,9 @@ final class JsonStdoutLogger extends AbstractLogger
         }
         if (null !== $this->context?->traceId) {
             $record['trace_id'] = $this->context->traceId;
+        }
+        if (null !== $this->context?->spanId) {
+            $record['span_id'] = $this->context->spanId;
         }
         if ([] !== $safe) {
             $record['context'] = $safe;

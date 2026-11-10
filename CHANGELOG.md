@@ -5,9 +5,12 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 ## [Unreleased]
 
 ### Added
+- **Tracing context.** `RequestIdMiddleware` gives every request a span id of its own (`Attributes::SPAN_ID`, logged as `span_id`) and an outgoing `traceparent` (`Attributes::TRACEPARENT`): the same trace, this request's span as the parent, the sampling flags of the caller (a new trace is sampled). Put it on the calls the service makes and the next service continues the trace; an OpenTelemetry SDK can export the spans.
 - `Retry` handles a database failover: a server that refuses the work because it is read-only (SQLSTATE 25006, the old primary or a standby) or still starting up (57P03) is retried on a new connection, for any work, idempotent or not (the statement was refused before it ran). Counted with the reason `failover`. A connection that could not be made (`ConnectionException`) is now treated like a lost one.
 
 ### Changed
+- **`BodySizeLimitMiddleware` limits a body without a declared length too** (a chunked body, whose size the web server does not announce): it is read up to the limit plus one byte, and answered with 413 beyond that. Before, only a declared `Content-Length` was checked.
+- **Log messages mask `Bearer`, `Basic` and JWT values** wherever they stand in a text, not only passwords inside URLs.
 - `Histogram` no longer stores a separate count: it is the sum of the buckets when the metrics are rendered (one APCu write less per observation, and the cumulative buckets can never be ahead of the count within one scrape). Not measurable in the benchmark, so it is a simplification, not a speed-up. A count key that an older version left in APCu is ignored.
 
 ### Fixed
