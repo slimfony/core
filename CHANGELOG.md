@@ -11,6 +11,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - `JwksKeyProvider` and `CompilationCache` no longer let PHP write a warning for a failure they already report by an exception (an unreachable key provider, a cache directory that cannot be created).
 
 ### Documentation
+- README "When to use it": the kinds of service the core is for (a resource server, an intake endpoint with an outbox, a consumer that shares the service's code, many small services with one set of rules) and what it is not for.
 - README "Sizing": the garbage collector never ran in the demo's load, with or without `deferGc`; it is insurance for code that builds reference cycles.
 
 ## [0.4.0] - 2026-11-09
@@ -25,6 +26,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - `JwksKeyProvider` and `CompilationCache` no longer let PHP write a warning for a failure they already report by an exception (an unreachable key provider, a cache directory that cannot be created).
 
 ### Documentation
+- README "When to use it": the kinds of service the core is for (a resource server, an intake endpoint with an outbox, a consumer that shares the service's code, many small services with one set of rules) and what it is not for.
 - README: chapters on reliable processing (outbox, leases, idempotent handlers, sweeper, deadlock prevention) and sizing (workers per core, garbage collection, classic mode).
 
 ### Fixed

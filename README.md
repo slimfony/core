@@ -16,6 +16,7 @@ A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is 
 **Contents**
 
 - [Why](#why)
+- [When to use it](#when-to-use-it)
 - [Demo](#demo)
 - [Quickstart](#quickstart)
 - [Production](#production)
@@ -40,6 +41,17 @@ A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is 
 - **Worker-safe:** services are reset after every request; if a reset fails the worker stops.
 
 It is the base for our own services, not a library for arbitrary apps: every service owns its dependency tree and commits its own `composer.lock`. Rules and scope: [GUIDELINES.md](GUIDELINES.md).
+
+## When to use it
+
+It fits a small service that does one job, runs for a long time, and has to be fast, observable and hard to misuse:
+
+- **A resource server behind a gateway.** An orders, catalogue or pricing API that accepts bearer tokens from your identity provider (Keycloak, Entra, Auth0, or one you run), checks scopes per route, and answers from PostgreSQL. Tokens are verified once and remembered, a key rotation at the provider is picked up without a restart, and `/healthz`, `/readyz` and a protected `/metrics` come with it.
+- **An intake endpoint that must not lose anything.** A webhook receiver or an upload API that answers `202` as soon as the request is stored, and does the real work later: the request and its message are written in one transaction (an outbox), and workers take them from there. The [demo](https://github.com/slimfony/demo) is exactly this: bank statements arrive as ZIP files and are booked by importers, even when one of them is killed in the middle.
+- **A queue consumer or a scheduled job that shares the service's code.** The relay, the importer or the nightly job boots the same container as the web workers (`Kernel::get()`), is reset after every message, stops on a memory limit or a signal, and shows its metrics to Prometheus (`ProcessMetricsEndpoint`), without a second framework.
+- **Many small services with one set of rules.** When a team runs a dozen services, the same logging, headers, error format, metrics and reset behaviour in every one of them (and one code style, which `tests/ArchitectureTest.php` checks) are worth more than the freedom to differ.
+
+It is a poor fit where you want the whole Symfony ecosystem (forms, templates, an ORM, bundles, Messenger) or a content-driven site: this core has no argument resolver for controllers, no event dispatcher and no bundles, on purpose. A service that outgrows it should move to Symfony, not stretch the core.
 
 ## Demo
 
