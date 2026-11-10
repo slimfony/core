@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use Slimfony\Core\Http\BodySizeLimitMiddleware;
 use Slimfony\Core\Http\RequestIdMiddleware;
 use Slimfony\Core\Http\SecurityHeadersMiddleware;
+use Slimfony\Core\Tests\Support\SeenBody;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -78,6 +79,30 @@ final class MiddlewareTest extends TestCase
         self::assertSame(200, $middleware->process(Request::create('/', 'POST', server: ['CONTENT_LENGTH' => '100']), $next)->getStatusCode());
     }
 
+    public function testABodyWithoutADeclaredLengthIsLimitedByReadingNoMoreThanTheLimit(): void
+    {
+        $middleware = new BodySizeLimitMiddleware(100);
+        $seen = new SeenBody();
+        $next = static function (Request $request) use ($seen): Response {
+            $seen->body = $request->getContent();
+
+            return new Response();
+        };
+        $chunked = static function (string $body): Request { // as the web server hands over a chunked body: no Content-Length
+            $request = Request::create('/', 'POST', content: $body);
+            $request->headers->remove('Content-Length');
+
+            return $request;
+        };
+
+        self::assertSame(413, $middleware->process($chunked(str_repeat('x', 101)), $next)->getStatusCode());
+        self::assertNull($seen->body, 'the application never saw the oversized body');
+
+        self::assertSame(200, $middleware->process($chunked(str_repeat('x', 100)), $next)->getStatusCode());
+        self::assertSame(str_repeat('x', 100), $seen->body, 'a body within the limit is still whole for the application');
+        self::assertSame(200, $middleware->process(Request::create('/', 'GET'), $next)->getStatusCode(), 'a request without a body is not read');
+    }
+
     public function testSecurityHeadersAreSetAndExplicitPublicCachingIsRespected(): void
     {
         $middleware = new SecurityHeadersMiddleware();
@@ -91,4 +116,5 @@ final class MiddlewareTest extends TestCase
         self::assertTrue($cached->headers->hasCacheControlDirective('max-age'));
         self::assertFalse($cached->headers->hasCacheControlDirective('no-store'));
     }
+
 }
