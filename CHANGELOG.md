@@ -4,6 +4,19 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-10
+
+No change to the library code. This release is about how it is checked and how it is delivered.
+
+### Added
+- **Releases are attested.** A pushed `v*` tag builds the source archive and a CycloneDX SBOM of the runtime dependencies, signs the build provenance of both with GitHub's OIDC identity, and attaches them to the release (`gh attestation verify <file> --repo slimfony/core`).
+- **Fuzz tests** (seeded, so a failure reproduces) for the parsers that take outside input: the JWT header and signature (`alg`, `kid`, nesting, junk, one changed character in the claims), `Env`, and the metric storage keys.
+- `SECURITY.md` has the supported-versions table and how to verify a release.
+
+### Changed
+- **CI also runs the oldest dependencies `composer.json` allows** (`--prefer-lowest`, PHP 8.4), next to the newest ones on PHP 8.4 and 8.5.
+- **Line coverage is checked: the build fails below 95%** (it is 95.9%), and the coverage table is in the job summary.
+
 ## [0.6.0] - 2026-11-10
 
 ### Changed
@@ -89,7 +102,8 @@ First tagged release: the foundation of the core. Pre-1.0: only classes marked `
 - Quality gates: PHPStan level max, php-cs-fixer (PER-CS and PHP 8.4 risky sets), architecture tests (strict_types, final, `#[\Override]`, typed constants, `@api`/`@internal`, declared dependencies only), random-order tests, executable README samples.
 - Supply chain: GitHub Actions pinned to commit SHAs, Dependabot, weekly outdated-dependency check, `composer audit` in CI.
 
-[Unreleased]: https://github.com/slimfony/core/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/slimfony/core/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/slimfony/core/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/slimfony/core/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/slimfony/core/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/slimfony/core/compare/v0.3.0...v0.4.0
