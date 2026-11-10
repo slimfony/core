@@ -67,7 +67,7 @@ final class ArchitectureTest extends TestCase
     {
         foreach (self::classesIn($directory, $namespace) as $name) {
             foreach (new \ReflectionClass($name)->getReflectionConstants() as $constant) {
-                if ($constant->getDeclaringClass()->getName() === $name) {
+                if ($constant->getDeclaringClass()->getName() === $name && !$constant->isEnumCase()) { // an enum case is not a constant with a type
                     self::assertTrue($constant->hasType(), \sprintf('%s::%s needs a native type (PHP 8.3 typed constants)', $name, $constant->getName()));
                 }
             }
@@ -80,7 +80,7 @@ final class ArchitectureTest extends TestCase
         foreach (self::classesIn($directory, $namespace) as $name) {
             $class = new \ReflectionClass($name);
             foreach ($class->getMethods() as $method) {
-                if ($method->getDeclaringClass()->getName() !== $name || $method->isConstructor() || $method->isPrivate()) {
+                if ($method->getDeclaringClass()->getName() !== $name || $method->isConstructor() || $method->isPrivate() || ($class->isEnum() && \in_array($method->getName(), ['cases', 'from', 'tryFrom'], true))) { // the built-in methods of an enum
                     continue;
                 }
                 $parent = $class->getParentClass();

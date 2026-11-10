@@ -25,6 +25,10 @@ final class Attributes
     public const string PUBLIC = '_public';
     /** route default: list of scopes the caller must all have */
     public const string SCOPES = '_scopes';
+    /** route default: `true` makes IdempotencyMiddleware keep the answers of this route by `Idempotency-Key` */
+    public const string IDEMPOTENT = '_idempotent';
+    /** set by IdempotencyMiddleware while the request runs for the first time: the caller's key, hashed (use it as a unique column to guard the effect) */
+    public const string IDEMPOTENCY_KEY = 'idempotency_key';
     /** set by AuthMiddleware: the authenticated Principal */
     public const string PRINCIPAL = '_principal';
     /** set by the Kernel when routing failed (404, 405, bad host); answered after the middleware chain ran */
