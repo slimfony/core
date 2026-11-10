@@ -55,8 +55,7 @@ jobs:
         run: |
           vendor/bin/phpunit --coverage-clover coverage.xml --coverage-text=coverage.txt
           cat coverage.txt
-          php -r '$m=simplexml_load_file("coverage.xml")->project->metrics;$p=100*$m["coveredstatements"]/$m["statements"];printf("line coverage %.2f%%
-",$p);exit($p<95?1:0);'
+          php -r '$m=simplexml_load_file("coverage.xml")->project->metrics;$p=100*$m["coveredstatements"]/$m["statements"];printf("line coverage %.2f%%",$p);exit($p<95?1:0);'
           { echo '```'; cat coverage.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
       - uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         if: matrix.php == '8.4' && matrix.dependencies == 'highest'
