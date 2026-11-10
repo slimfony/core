@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Documentation
+- README "Sizing": the garbage collector never ran in the demo's load, with or without `deferGc`; it is insurance for code that builds reference cycles.
+
 ## [0.4.0] - 2026-11-09
 
 ### Added
