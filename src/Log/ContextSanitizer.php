@@ -39,10 +39,16 @@ final class ContextSanitizer
         return $out;
     }
 
-    /** Masks the password part of anything URL/DSN shaped: scheme://user:password@host */
+    /**
+     * Masks what must not be in a log line wherever it stands in a text: the password part of anything URL/DSN shaped
+     * (scheme://user:password@host), the credential after `Bearer` or `Basic`, and anything that looks like a JWT.
+     */
     public function mask(string $text): string
     {
-        return preg_replace('#(://[^/\s:@]+:)[^@\s]+@#', '$1[redacted]@', $text) ?? $text;
+        $text = preg_replace('#(://[^/\s:@]+:)[^@\s]+@#', '$1[redacted]@', $text) ?? $text;
+        $text = preg_replace('#\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{6,}#i', '$1 [redacted]', $text) ?? $text;
+
+        return preg_replace('#\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*#', '[redacted jwt]', $text) ?? $text;
     }
 
     /**

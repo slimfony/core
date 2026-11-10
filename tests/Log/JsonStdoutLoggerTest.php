@@ -71,6 +71,22 @@ final class JsonStdoutLoggerTest extends TestCase
         self::assertStringContainsString('json', $lines[0], 'harmless values stay');
     }
 
+    public function testCredentialsInsideAMessageAreMaskedToo(): void
+    {
+        $lines = [];
+        $logger = self::logger($lines);
+
+        $logger->warning('the call failed with Authorization: Bearer abc123def456 and a token eyJhbGciOiJFZERTQSJ9.eyJzdWIiOiJhbGljZSJ9.c2lnbmF0dXJl in it');
+        $logger->error('rejected', ['exception' => new \RuntimeException('HTTP 401 for Basic dXNlcjpwYXNzd29yZA==')]);
+
+        foreach ($lines as $line) {
+            self::assertStringNotContainsString('abc123def456', $line);
+            self::assertStringNotContainsString('eyJhbGci', $line);
+            self::assertStringNotContainsString('dXNlcjpwYXNzd29yZA', $line);
+        }
+        self::assertStringContainsString('Bearer [redacted]', $lines[0]);
+    }
+
     public function testExceptionsAreLoggedWithoutTraceArguments(): void
     {
         $lines = [];
