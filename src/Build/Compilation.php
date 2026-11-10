@@ -31,13 +31,8 @@ final readonly class Compilation
     public function middlewareIds(): array
     {
         $ids = $this->container->getParameter(self::MIDDLEWARE_PARAMETER);
-        if (!\is_array($ids) || !array_is_list($ids)) {
+        if (!\is_array($ids) || !array_is_list($ids) || $ids !== array_filter($ids, \is_string(...))) {
             throw new ConfigurationException(\sprintf('Parameter "%s" must be a list of service ids.', self::MIDDLEWARE_PARAMETER));
-        }
-        foreach ($ids as $id) {
-            if (!\is_string($id)) {
-                throw new ConfigurationException(\sprintf('Parameter "%s" must be a list of service ids.', self::MIDDLEWARE_PARAMETER));
-            }
         }
 
         return $ids;

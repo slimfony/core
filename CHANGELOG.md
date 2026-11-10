@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Changed
+- `Histogram` no longer stores a separate count: it is the sum of the buckets when the metrics are rendered (one APCu write less per observation, and the cumulative buckets can never be ahead of the count within one scrape). Not measurable in the benchmark, so it is a simplification, not a speed-up. A count key that an older version left in APCu is ignored.
+
 ### Documentation
 - README "Sizing": the garbage collector never ran in the demo's load, with or without `deferGc`; it is insurance for code that builds reference cycles.
 

@@ -66,7 +66,7 @@ final class MetricsRegistry
 
     public function render(): string
     {
-        $samples = ['counter' => [], 'gauge' => [], 'bucket' => [], 'count' => [], 'sum' => []];
+        $samples = ['counter' => [], 'gauge' => [], 'bucket' => [], 'sum' => []];
         foreach ($this->storage->all() as $key => $value) {
             $parsed = Keys::parse($key);
             if (null === $parsed || !isset($this->definitions[$parsed['name']])) {
@@ -77,7 +77,6 @@ final class MetricsRegistry
                 Keys::COUNTER => $samples['counter'][$parsed['name']][$labels] = $value,
                 Keys::GAUGE => $samples['gauge'][$parsed['name']][$labels] = $value,
                 Keys::BUCKET => $samples['bucket'][$parsed['name']][$labels][$parsed['bucket'] ?? 0] = $value,
-                Keys::COUNT => $samples['count'][$parsed['name']][$labels] = $value,
                 Keys::SUM_MICROSECONDS => $samples['sum'][$parsed['name']][$labels] = $value,
                 default => null,
             };
@@ -100,15 +99,15 @@ final class MetricsRegistry
                 continue;
             }
 
-            $series = $samples['count'][$name] ?? [];
+            $series = $samples['bucket'][$name] ?? [];
             ksort($series);
-            foreach (array_keys($series) as $labels) {
+            foreach ($series as $labels => $perBucket) {
                 $cumulative = 0;
                 foreach ($definition['buckets'] as $i => $upperBound) {
-                    $cumulative += $samples['bucket'][$name][$labels][$i] ?? 0;
+                    $cumulative += $perBucket[$i] ?? 0;
                     $out .= $name . '_bucket' . self::labels($definition['labels'], $labels, self::number($upperBound)) . ' ' . $cumulative . "\n";
                 }
-                $count = $samples['count'][$name][$labels] ?? 0;
+                $count = array_sum($perBucket); // every observation is in exactly one bucket (the last is +Inf): the count needs no counter of its own
                 $out .= $name . '_bucket' . self::labels($definition['labels'], $labels, '+Inf') . ' ' . $count . "\n";
                 $out .= $name . '_sum' . self::labels($definition['labels'], $labels) . ' ' . self::number(($samples['sum'][$name][$labels] ?? 0) / 1_000_000) . "\n";
                 $out .= $name . '_count' . self::labels($definition['labels'], $labels) . ' ' . $count . "\n";

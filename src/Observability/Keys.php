@@ -15,7 +15,6 @@ final class Keys
     public const string COUNTER = 'c';
     public const string GAUGE = 'g';
     public const string BUCKET = 'b';
-    public const string COUNT = 'n';
     public const string SUM_MICROSECONDS = 's';
 
     private function __construct() {}

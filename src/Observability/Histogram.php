@@ -6,8 +6,8 @@ namespace Slimfony\Core\Observability;
 
 /**
  * Distribution of durations in seconds. Create it with MetricsRegistry::histogram() at boot.
- * Per observation only the matching bucket, the count and the sum (whole microseconds, so it is an atomic
- * integer increment) are written; the cumulative view is built when the metrics are rendered.
+ * Per observation only the matching bucket and the sum (whole microseconds, so it is an atomic integer increment)
+ * are written; the cumulative view and the count (the sum of all buckets) are built when the metrics are rendered.
  *
  * @api
  */
@@ -43,7 +43,6 @@ final class Histogram
         }
 
         $this->storage->add(Keys::of(Keys::BUCKET, $this->name, $labelValues, $index), 1);
-        $this->storage->add(Keys::of(Keys::COUNT, $this->name, $labelValues), 1);
         $this->storage->add(Keys::of(Keys::SUM_MICROSECONDS, $this->name, $labelValues), max(0, (int) round($seconds * 1_000_000)));
     }
 }
