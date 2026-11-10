@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-10
+
 ### Added
 - **`Idempotency\IdempotencyMiddleware`**: `Idempotency-Key` for the routes marked `_idempotent: true` (`POST` and `PATCH`). The first answer is kept and sent again for the same request (`Idempotent-Replayed: true`); a different request with the same key is `422`, the same one while the first runs is `409` with `Retry-After`; a `5xx` or an exception is not kept; keys belong to the caller. The `IdempotencyStore` contract has a database implementation (`DbalIdempotencyStore`, `TABLE_SQL`); the request attribute `Attributes::IDEMPOTENCY_KEY` lets a handler guard its own effect with a unique column.
 - **Tracing context.** `RequestIdMiddleware` gives every request a span id of its own (`Attributes::SPAN_ID`, logged as `span_id`) and an outgoing `traceparent` (`Attributes::TRACEPARENT`): the same trace, this request's span as the parent, the sampling flags of the caller (a new trace is sampled). Put it on the calls the service makes and the next service continues the trace; an OpenTelemetry SDK can export the spans.
@@ -81,3 +83,10 @@ First tagged release: the foundation of the core. Pre-1.0: only classes marked `
 - CI: PHP 8.4 and 8.5, real PostgreSQL, FrankenPHP worker smoke test, Codecov, weekly outdated check.
 - Quality gates: PHPStan level max, php-cs-fixer (PER-CS and PHP 8.4 risky sets), architecture tests (strict_types, final, `#[\Override]`, typed constants, `@api`/`@internal`, declared dependencies only), random-order tests, executable README samples.
 - Supply chain: GitHub Actions pinned to commit SHAs, Dependabot, weekly outdated-dependency check, `composer audit` in CI.
+
+[Unreleased]: https://github.com/slimfony/core/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/slimfony/core/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/slimfony/core/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/slimfony/core/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/slimfony/core/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/slimfony/core/releases/tag/v0.1.0
