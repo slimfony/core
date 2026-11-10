@@ -21,14 +21,28 @@ final class ReadmeTest extends TestCase
     private const string README = __DIR__ . '/../README.md';
 
     /**
+     * @return list<string> the README and the pages of the guide
+     */
+    private static function pages(): array
+    {
+        $guide = glob(__DIR__ . '/../guide/*.md');
+
+        return [self::README, ...(false === $guide ? [] : $guide)];
+    }
+
+    /**
      * @return list<string> every ```php block
      */
     private static function phpBlocks(): array
     {
-        preg_match_all('/^```php\n(.*?)\n```$/ms', (string) file_get_contents(self::README), $matches);
-        self::assertNotEmpty($matches[1], 'the README has no PHP samples');
+        $blocks = [];
+        foreach (self::pages() as $file) {
+            preg_match_all('/^```php\n(.*?)\n```$/ms', (string) file_get_contents($file), $matches);
+            array_push($blocks, ...$matches[1]);
+        }
+        self::assertNotEmpty($blocks, 'the README has no PHP samples');
 
-        return $matches[1];
+        return $blocks;
     }
 
     /**
@@ -106,5 +120,25 @@ final class ReadmeTest extends TestCase
         $slug = static fn(string $heading): string => str_replace(' ', '-', (string) preg_replace('/[^a-z0-9 -]/', '', strtolower($heading)));
 
         self::assertSame(array_map($slug, $headings[1]), array_column($items, 2), 'the contents list must name every section, in order, with working anchors');
+    }
+    public function testEveryLinkToAFileOfTheRepositoryWorksAndEveryPageOfTheGuideIsLinked(): void
+    {
+        foreach (self::pages() as $page) {
+            preg_match_all('/\]\(([^)#\s]+)(?:#[^)]*)?\)/', (string) file_get_contents($page), $links);
+            foreach ($links[1] as $target) {
+                if (1 === preg_match('#^[a-z]+:#i', $target)) {
+                    continue; // an address on the web
+                }
+                self::assertFileExists(\dirname($page) . '/' . $target, \sprintf('%s links to %s, which does not exist', basename($page), $target));
+            }
+        }
+
+        $readme = (string) file_get_contents(self::README);
+        foreach (self::pages() as $page) {
+            if (self::README === $page) {
+                continue;
+            }
+            self::assertStringContainsString('(guide/' . basename($page) . ')', $readme, basename($page) . ' is not linked from the README');
+        }
     }
 }

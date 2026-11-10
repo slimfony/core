@@ -14,7 +14,7 @@ composer ci
 ## A change
 
 - Keep it small, and keep the library small: a new dependency or abstraction has to earn its place (GUIDELINES section 1). Deleting code is welcome.
-- Behaviour is tested, deterministically and few; reuse `tests/Support`. The samples in the README are executed by `tests/ReadmeTest.php`, so they must keep working.
+- Behaviour is tested, deterministically and few; reuse `tests/Support`. The samples in the README and in the guide are executed by `tests/ReadmeTest.php` (and its links are checked), so they must keep working.
 - Public changes go into the `[Unreleased]` part of the CHANGELOG, and a breaking one also into UPGRADE.md. See [STABILITY.md](STABILITY.md) for what counts as public.
 - Commit messages say what and why in the first line. One topic per commit; the CI must be green.
 

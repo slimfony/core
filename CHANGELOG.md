@@ -9,6 +9,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - The constructors of `Counter`, `Gauge` and `Histogram` are marked `@internal`: make them with `MetricsRegistry`.
 
 ### Documentation
+- **The README is shorter, the chapters are in `guide/`** (production, database, metrics and health, authentication, consumers, reliable processing, failure behaviour, sizing, worker mode pitfalls). The README keeps the idea, the quickstart, the overview and the performance figures. The tests run the code samples of the guide and check that every link to a file works.
 - `STABILITY.md` (what SemVer covers: the `@api` classes and the contracts that are not classes; what it does not; the deprecation rule; the supported versions), `UPGRADE.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue and pull request templates.
 
 ## [0.5.0] - 2026-11-10
