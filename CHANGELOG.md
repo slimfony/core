@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-10
+
 ### Changed
 - **Breaking: `WorkerRunner` takes its garbage-collection settings as one object.** The parameters `gcEvery`, `deferGc`, `gcRootsThreshold`, `gcRuns` and `gcCollected` are replaced by `gc: new GarbageCollection(every:, deferred:, rootsThreshold:, runs:, collected:)` (see UPGRADE.md). The constructor had eleven parameters, five of them for one concern; the parameter names are part of the API, so this is the time to group them.
 - The constructors of `Counter`, `Gauge` and `Histogram` are marked `@internal`: make them with `MetricsRegistry`.
@@ -87,7 +89,8 @@ First tagged release: the foundation of the core. Pre-1.0: only classes marked `
 - Quality gates: PHPStan level max, php-cs-fixer (PER-CS and PHP 8.4 risky sets), architecture tests (strict_types, final, `#[\Override]`, typed constants, `@api`/`@internal`, declared dependencies only), random-order tests, executable README samples.
 - Supply chain: GitHub Actions pinned to commit SHAs, Dependabot, weekly outdated-dependency check, `composer audit` in CI.
 
-[Unreleased]: https://github.com/slimfony/core/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/slimfony/core/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/slimfony/core/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/slimfony/core/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/slimfony/core/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/slimfony/core/compare/v0.2.0...v0.3.0
