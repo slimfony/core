@@ -25,6 +25,7 @@ A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is 
 - [Authentication](#authentication)
 - [Consumers and jobs (without HTTP)](#consumers-and-jobs-without-http)
 - [Reliable processing](#reliable-processing)
+- [Failure behaviour and restarts](#failure-behaviour-and-restarts)
 - [Sizing](#sizing)
 - [What is in the box](#what-is-in-the-box)
 - [Worker mode pitfalls](#worker-mode-pitfalls)
@@ -418,7 +419,31 @@ A consumer can die at any line. These rules, in this order, make that harmless; 
 4. **Sweep.** A small periodic job re-publishes outbox rows that stayed unpublished and releases claims whose deadline passed. It is the safety net for everything above; run it in the relay.
 5. **Give up visibly.** After the broker's maximum number of deliveries, mark the unit `failed` with the reason instead of retrying forever, and alert on the count (see `exhausted` of `Retry`).
 
+**`Idempotency-Key` for the API.** A client that did not see the answer sends the request again. With `IdempotencyMiddleware` (after `AuthMiddleware`, with a `DbalIdempotencyStore` on your database, its table is `DbalIdempotencyStore::TABLE_SQL`) a route marked `_idempotent: true` answers the repeated `POST` or `PATCH` with the first answer (header `Idempotent-Replayed: true`) instead of doing the work twice. The same key with a different request is `422`, the same request while the first still runs is `409` with `Retry-After`, a `5xx` or an exception is not kept (the client may try again), and keys belong to the caller (the token's subject). The store keeps the answer after the work is done, so if the process dies between the two, the request runs again once the lock has expired: for work that must never happen twice, give the handler a unique column and fill it with the request attribute `Attributes::IDEMPOTENCY_KEY`.
+
 **Deadlocks.** Two transactions that lock the same rows in different order deadlock, and `Retry::transactional()` then re-runs the loser. That is correct but wasteful under load. Prevention is cheaper: lock rows in one agreed order (for example `ORDER BY id` in the statement that locks them, or sort the keys before a batch of upserts). In the demo's import benchmark this alone took 1000 files with 8 importers from 67 s to 13.9 s. If a deadlock does happen, PostgreSQL waits `deadlock_timeout` (1 s by default) before it checks for one; the waiting transaction is stuck for that long. For workloads with short transactions, `deadlock_timeout` of 200 ms to 500 ms is a reasonable trade, but keep `Retry`'s attempts small: it is a net, not a strategy.
+
+## Failure behaviour and restarts
+
+What the core does when something goes wrong, and what is left to the platform. A restart loses what is in memory and what is in flight; the core keeps the *data* consistent, and the caller or the broker repeats what was lost (see [Reliable processing](#reliable-processing)).
+
+| What happens | What the core does | What you set |
+|---|---|---|
+| A request throws | A generic `500` problem+json without internals, logged with the request id; the worker goes on. | `APP_DEBUG` stays off outside development. |
+| A request is slow or hangs | Nothing: the core has no deadline of its own. | Timeouts at the edge (Caddy `timeouts`: `read_header`, `read_body`, `write`) and in the database (`statement_timeout`, the connect timeout of `ConnectionFactory`). |
+| Too much load | Nothing: the core does not queue or shed load. | The web server's queue and wait settings, rate limits and `429`/`503` with `Retry-After` at the ingress; `request_body max_size` at the edge. |
+| A state reset fails | The worker stops (the state is unknown); the server starts it again. | |
+| A worker restarts by itself (`MAX_REQUESTS`, memory limit) | It stops after the response is sent; the other threads keep serving. | `MAX_REQUESTS`, `maxMemoryBytes`. |
+| A pod is stopped by a deploy | The server finishes the requests in flight; a consumer finishes its message on SIGTERM. | `maxUnavailable: 0`, a `readinessProbe` that fails first, a `preStop` sleep of 5 to 10 seconds (the load balancer needs a moment to stop sending), `terminationGracePeriodSeconds` above your longest request or message, a `PodDisruptionBudget`. See `k8s/` in the demo. |
+| A process is killed (out of memory, crash, node lost) | The request in flight is lost; the database rolls back its open transaction; a consumer's message is not acknowledged and is delivered again. | Idempotent handlers and `Idempotency-Key` (below); the broker's acknowledgement wait. |
+| Deadlock or serialization failure | `Retry` runs the whole transaction again, a few times, with jitter. | `maxAttempts`, `backoffMicros`; alert on the `exhausted` counter. |
+| The database connection is lost | `Retry` repeats a read; a write only when you declare it `idempotent: true` (a lost COMMIT may or may not have happened). | `idempotent: true` where it is true. |
+| A database failover (the old primary is read-only, the new one is starting) | `Retry` repeats the work on a new connection, idempotent or not: the server refused it before anything ran. | Connect through a name that follows the primary (a pooler, a service). |
+| A transaction is left open by a request | Rolled back, logged and counted (`db_transactions_leaked_total`). | |
+| The identity provider is down | Keys already loaded keep working; a worker that starts with none waits briefly for the first document, then refuses with `401` (closed, not open). | `warmUp()` at boot; `cacheSeconds` for how long a token that was verified is trusted. |
+| The process restarts | Counters in APCu start again (Prometheus copes with a counter that resets); the verified-token cache and the keys are loaded again; the compiled container is read from disk. | |
+
+Not in the core, on purpose: durable retries of failed work (an outbox, a broker, a sweeper: see the next chapter), circuit breakers and retries of outgoing HTTP calls, load shedding.
 
 ## Sizing
 
@@ -431,7 +456,7 @@ A consumer can die at any line. These rules, in this order, make that harmless; 
 | Component | What it does |
 |---|---|
 | `Kernel` | Boots once, routes, runs controllers, turns errors into `application/problem+json` (400, 404, 405 with `Allow`, 413, 500). |
-| `Http\RequestIdMiddleware`, `SecurityHeadersMiddleware`, `BodySizeLimitMiddleware` | Request id and trace id (forged values replaced), secure response headers, 413 on a too large `Content-Length`. |
+| `Http\RequestIdMiddleware`, `SecurityHeadersMiddleware`, `BodySizeLimitMiddleware` | Request id, trace id, a span id of its own and the `traceparent` for outgoing calls (forged values replaced), secure response headers, 413 on a too large body (declared or chunked). |
 | `Worker\WorkerRunner` | The worker loop: max requests, memory limit, optional GC, stops when a reset fails. |
 | `Worker\ConsumerRunner` | The loop of a non-HTTP process (queue consumer, relay, job): reset after every message, message and memory limits, stop on SIGTERM. |
 | `Build\ContainerCompiler`, `CompilationCache` | Compile the configuration and dump it at build time (`vendor/bin/slimfony warmup`). |
@@ -440,13 +465,15 @@ A consumer can die at any line. These rules, in this order, make that harmless; 
 | `Observability\*` | Counters and histograms in shared APCu memory, Prometheus text format, protected `/metrics`, `MetricsMiddleware`. |
 | `Health\*` | `/healthz` and `/readyz` controllers and the `ReadinessCheck` interface. |
 | `Auth\*` | `Authenticator` contract, `Principal`, `AuthMiddleware` (deny by default, `_public` and `_scopes` route defaults), and `Auth\Jwt\*`: verification of bearer JWTs. |
-| `Database\*` | Connection factory, lifecycle (leaked transactions, idle connections), bounded retries. |
+| `Database\*` | Connection factory, lifecycle (leaked transactions, idle connections), bounded retries (deadlocks, lost connections, failover). |
+| `Idempotency\*` | `IdempotencyMiddleware`, the `IdempotencyStore` contract and its database implementation: `Idempotency-Key` for `POST` and `PATCH`. |
 
 ## Worker mode pitfalls
 
 - Request-scoped state belongs in a service implementing `Symfony\Contracts\Service\ResetInterface` (register it with `setAutoconfigured(true)`), never in `static` properties. The reset runs after every request.
 - The core keeps no server-side sessions: a service stays stateless and identity travels in the token.
-- Chunked bodies without `Content-Length` are not caught by `BodySizeLimitMiddleware`; limit them at the edge (Caddy `request_body max_size`).
+- `BodySizeLimitMiddleware` also limits a body without a declared length (it reads at most the limit plus one byte); still set `request_body max_size` at the edge, so an oversized upload is stopped before PHP.
+- To continue a trace, put the request attribute `Attributes::TRACEPARENT` into the `traceparent` header of the calls the service makes; the log lines carry `trace_id` and `span_id`, and an OpenTelemetry SDK can use the same ids to export spans.
 - Keep the number of worker threads times the number of pods below your PostgreSQL `max_connections` (or put PgBouncer in front).
 
 ## Performance
@@ -482,7 +509,6 @@ The same scenarios without opcache (the CLI default) are two to three times slow
 ## Roadmap
 
 1. **[slimfony/demo](https://github.com/slimfony/demo)** is released: a complete reference service on the core with Docker, PostgreSQL, NATS (transactional outbox, importers), Prometheus, Grafana, Kubernetes manifests and published k6 load results. A small starter template without the demo's domain is planned.
-2. **Core 0.5.0**, from the review of the core (security and quality), two small hardenings: a warning when the body size limit is used without a limit at the edge (it only sees a declared `Content-Length`, not a chunked body), and masking of `Bearer ...` values in logged exception messages (today only passwords inside URLs are masked).
 
 ## Development
 

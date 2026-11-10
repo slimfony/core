@@ -5,6 +5,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 ## [Unreleased]
 
 ### Added
+- **`Idempotency\IdempotencyMiddleware`**: `Idempotency-Key` for the routes marked `_idempotent: true` (`POST` and `PATCH`). The first answer is kept and sent again for the same request (`Idempotent-Replayed: true`); a different request with the same key is `422`, the same one while the first runs is `409` with `Retry-After`; a `5xx` or an exception is not kept; keys belong to the caller. The `IdempotencyStore` contract has a database implementation (`DbalIdempotencyStore`, `TABLE_SQL`); the request attribute `Attributes::IDEMPOTENCY_KEY` lets a handler guard its own effect with a unique column.
 - **Tracing context.** `RequestIdMiddleware` gives every request a span id of its own (`Attributes::SPAN_ID`, logged as `span_id`) and an outgoing `traceparent` (`Attributes::TRACEPARENT`): the same trace, this request's span as the parent, the sampling flags of the caller (a new trace is sampled). Put it on the calls the service makes and the next service continues the trace; an OpenTelemetry SDK can export the spans.
 - `Retry` handles a database failover: a server that refuses the work because it is read-only (SQLSTATE 25006, the old primary or a standby) or still starting up (57P03) is retried on a new connection, for any work, idempotent or not (the statement was refused before it ran). Counted with the reason `failover`. A connection that could not be made (`ConnectionException`) is now treated like a lost one.
 
@@ -17,6 +18,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - `JwksKeyProvider` and `CompilationCache` no longer let PHP write a warning for a failure they already report by an exception (an unreachable key provider, a cache directory that cannot be created).
 
 ### Documentation
+- README "Failure behaviour and restarts": what the core does when something goes wrong (a table of the cases), what is left to the platform (timeouts, load shedding, the graceful shutdown of a pod) and what the core leaves out on purpose.
 - README "When to use it": the kinds of service the core is for (a resource server, an intake endpoint with an outbox, a consumer that shares the service's code, many small services with one set of rules) and what it is not for.
 - README "Sizing": the garbage collector never ran in the demo's load, with or without `deferGc`; it is insurance for code that builds reference cycles.
 
@@ -32,6 +34,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - `JwksKeyProvider` and `CompilationCache` no longer let PHP write a warning for a failure they already report by an exception (an unreachable key provider, a cache directory that cannot be created).
 
 ### Documentation
+- README "Failure behaviour and restarts": what the core does when something goes wrong (a table of the cases), what is left to the platform (timeouts, load shedding, the graceful shutdown of a pod) and what the core leaves out on purpose.
 - README "When to use it": the kinds of service the core is for (a resource server, an intake endpoint with an outbox, a consumer that shares the service's code, many small services with one set of rules) and what it is not for.
 - README: chapters on reliable processing (outbox, leases, idempotent handlers, sweeper, deadlock prevention) and sizing (workers per core, garbage collection, classic mode).
 
