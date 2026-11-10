@@ -32,12 +32,7 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 - `Retry` counts the operations that failed after all attempts in an optional second counter (`exhausted`, same `reason` label), and the pause between attempts is configurable (`backoffMicros`).
 - `JwksKeyProvider::warmUp()`: loads the keys at worker start.
 
-### Fixed
-- `JwksKeyProvider` and `CompilationCache` no longer let PHP write a warning for a failure they already report by an exception (an unreachable key provider, a cache directory that cannot be created).
-
 ### Documentation
-- README "Failure behaviour and restarts": what the core does when something goes wrong (a table of the cases), what is left to the platform (timeouts, load shedding, the graceful shutdown of a pod) and what the core leaves out on purpose.
-- README "When to use it": the kinds of service the core is for (a resource server, an intake endpoint with an outbox, a consumer that shares the service's code, many small services with one set of rules) and what it is not for.
 - README: chapters on reliable processing (outbox, leases, idempotent handlers, sweeper, deadlock prevention) and sizing (workers per core, garbage collection, classic mode).
 
 ### Fixed
