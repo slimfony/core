@@ -4,6 +4,23 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-18
+
+The public API (see STABILITY.md) is now covered by SemVer. The release follows an independent review of the whole library; what it found is fixed below.
+
+### Fixed
+- **`ProcessMetricsEndpoint` checked its address list against `127.0.0.1` for every client**, so a list that named the cluster network matched nobody, and a list with `127.0.0.1` admitted everybody. It uses the address of the connected client now. The head of a request must also arrive within one second in all (before, one second per read).
+- **A middleware that throws is answered at its own layer.** The middleware around it ran no more, so the `500` had no request id and no security headers and was not counted by the metrics.
+- **`JwksKeyProvider` leaves a provider that failed alone for `minRefetchSeconds`**; with the keys expired and the provider down, every request used to try the download again (the worker that held the lock waited up to 3 seconds each time). One key the library cannot use (an unsupported curve) no longer takes the other keys with it.
+- **`DbalIdempotencyStore`: a request that lost its claim** (it ran longer than `lockSeconds` and another request took the key over) no longer finishes or deletes the claim of the other one.
+- The `Bearer` scheme is matched without regard to case (RFC 9110).
+
+### Changed
+- Services that implement `ResetInterface` are reset after every request without a tag, synthetic ones included; the README no longer asks for `ResetPass::TAG` (an `@internal` class).
+- `IdempotencyMiddleware` does not keep `408`, `425` and `429` answers.
+- The default of `TRUSTED_HOSTS` is stated where it is described: empty means any `Host` is accepted.
+- STABILITY.md lists the constructor parameters that are seams for tests (`now`, `sleep`, `fetch`, `handleRequest`) as not covered. SECURITY.md: only the latest release is supported.
+
 ### Documentation
 - `guide/failure-behaviour.md`: what happens when the database is away for several seconds, with the PgBouncer settings that decide how long a request waits (measured in the demo with a failure injection under load).
 
@@ -105,7 +122,8 @@ First tagged release: the foundation of the core. Pre-1.0: only classes marked `
 - Quality gates: PHPStan level max, php-cs-fixer (PER-CS and PHP 8.4 risky sets), architecture tests (strict_types, final, `#[\Override]`, typed constants, `@api`/`@internal`, declared dependencies only), random-order tests, executable README samples.
 - Supply chain: GitHub Actions pinned to commit SHAs, Dependabot, weekly outdated-dependency check, `composer audit` in CI.
 
-[Unreleased]: https://github.com/slimfony/core/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/slimfony/core/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/slimfony/core/compare/v0.7.0...v1.0.0
 [0.7.0]: https://github.com/slimfony/core/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/slimfony/core/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/slimfony/core/compare/v0.4.0...v0.5.0

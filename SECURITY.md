@@ -11,7 +11,7 @@ Report vulnerabilities privately via GitHub Security Advisories ("Report a vulne
 | the latest release | yes |
 | older releases | no: upgrade (see [UPGRADE.md](UPGRADE.md)) |
 
-Before 1.0 only the latest minor release is supported. [STABILITY.md](STABILITY.md) lists the PHP, Symfony and Doctrine versions that are supported.
+Only the latest release is supported. [STABILITY.md](STABILITY.md) lists the PHP, Symfony and Doctrine versions that are supported.
 
 ## Verifying a release
 

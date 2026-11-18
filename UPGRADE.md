@@ -2,6 +2,16 @@
 
 Each section lists what a change from the previous version asks of your code. The reasons and the other changes are in the [CHANGELOG](CHANGELOG.md).
 
+## 0.7 to 1.0
+
+Nothing breaks. What behaves differently:
+
+- **A service that implements `ResetInterface` is reset after every request without a tag**, also an object handed to the kernel as a synthetic service (the request context, the connection lifecycle). A `->addTag(ResetPass::TAG)` that is still there does no harm.
+- **A failing middleware is answered at its own layer**: the middleware around it still run, so the `500` has the request id and the security headers and is counted by the metrics.
+- **`IdempotencyMiddleware` does not keep `408`, `425` and `429` answers** (like a `5xx`, they ask the client to try again).
+- **The `Bearer` scheme of an `Authorization` header is matched without regard to case** (RFC 9110).
+- **`ProcessMetricsEndpoint` checks the address list against the address of the client** that connected (it saw `127.0.0.1` for everyone before).
+
 ## 0.5 to 0.6
 
 - **`WorkerRunner` takes its garbage-collection settings as one object.** The parameters `gcEvery`, `deferGc`, `gcRootsThreshold`, `gcRuns` and `gcCollected` are replaced by `gc: new GarbageCollection(...)` with the parameters `every`, `deferred`, `rootsThreshold`, `runs` and `collected`:

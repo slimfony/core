@@ -1,6 +1,6 @@
 # Stability and support
 
-slimfony/core follows [Semantic Versioning](https://semver.org). From 1.0 on, a breaking change to what is listed here is a new major version. Before 1.0 the minor version may break it (see [UPGRADE.md](UPGRADE.md)), and every such change is in the CHANGELOG.
+slimfony/core follows [Semantic Versioning](https://semver.org). A breaking change to what is listed here is a new major version; every change is in the [CHANGELOG](CHANGELOG.md), and what a major version asks of your code is in [UPGRADE.md](UPGRADE.md).
 
 ## What is covered
 
@@ -17,6 +17,7 @@ slimfony/core follows [Semantic Versioning](https://semver.org). From 1.0 on, a 
 
 - Everything marked `@internal`, and everything not marked `@api`.
 - The constructors of `Counter`, `Gauge` and `Histogram` (make them with `MetricsRegistry`).
+- The constructor parameters that are seams for tests: `now` (the clock), `sleep` and `fetch` (the JWKS download), and `handleRequest` of `WorkerRunner`.
 - The wording of log messages and of exception messages (match on the exception class, or on the codes and fields above).
 - The layout of what the core stores for itself: APCu keys, the files of the compiled container and route cache (run `warmup` again after an upgrade), the table of `DbalIdempotencyStore` beyond what `TABLE_SQL` creates.
 - Performance figures (the benchmark guard in CI protects them, but they are not a promise).
@@ -24,7 +25,7 @@ slimfony/core follows [Semantic Versioning](https://semver.org). From 1.0 on, a 
 
 ## Deprecation
 
-Something that is going to be removed is first marked `@deprecated` (with what to use instead) and kept for at least one minor version, and the CHANGELOG says so. Before 1.0 a removal may come without that notice, but it is always in the CHANGELOG and in UPGRADE.md.
+Something that is going to be removed is first marked `@deprecated` (with what to use instead) and kept for at least one minor version, and the CHANGELOG says so.
 
 ## Supported versions
 
