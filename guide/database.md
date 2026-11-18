@@ -29,3 +29,5 @@ $retry->transactional(static function (Connection $db): void {
 
 `ConnectionLifecycle` rolls back (and logs) a transaction a request left open, and recycles a connection that has been idle too long. Add `ConnectionLifecycleMiddleware` to the chain to enable the idle check. All SQL uses bound parameters.
 
+
+What happens when the database is away for several seconds (and which pooler settings decide how long a request waits) is in [Failure behaviour and restarts](failure-behaviour.md).
