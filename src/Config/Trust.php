@@ -8,10 +8,12 @@ use Slimfony\Core\Exception\ConfigurationException;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Boot-time trust configuration. Secure default: nothing is trusted, X-Forwarded-* headers are ignored.
+ * Boot-time trust configuration. Secure default for proxies: nothing is trusted, X-Forwarded-* headers are ignored.
+ * Hosts: while TRUSTED_HOSTS is empty every Host header is accepted (the usual case behind an ingress that routes by host);
+ * set it where the service can be reached with a Host you did not choose.
  *
  *   TRUSTED_PROXIES  comma separated IPs/CIDRs of your ingress/load balancer (e.g. 10.0.0.0/8), or REMOTE_ADDR
- *   TRUSTED_HOSTS    comma separated exact host names (e.g. api.example.com); other Host headers get a 400
+ *   TRUSTED_HOSTS    comma separated exact host names (e.g. api.example.com); other Host headers get a 400; empty = any host
  *
  * apply() is the one place that writes Symfony's static request state. Call it once, before the worker loop.
  *

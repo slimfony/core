@@ -16,7 +16,7 @@ Workers then only `require` the dumped container and route table (shared by opca
 | `LOG_LEVEL` | `index.php` | Minimum log level, default `info`. |
 | `MAX_REQUESTS` | `index.php` | Restart the worker after N requests, `0` = never. |
 | `TRUSTED_PROXIES` | `Config\Trust` | Comma separated IPs/CIDRs of your ingress or load balancer. Without it `X-Forwarded-*` is ignored and the client IP is the ingress. |
-| `TRUSTED_HOSTS` | `Config\Trust` | Comma separated exact host names; any other `Host` gets a 400. |
+| `TRUSTED_HOSTS` | `Config\Trust` | Comma separated exact host names; any other `Host` gets a 400. Empty (the default) accepts any `Host`: set it where the service can be reached with a `Host` you did not choose. |
 | `METRICS_TOKEN` | `MetricsController` | Bearer token for `/metrics`, at least 16 characters. |
 | `JWT_ISSUER`, `JWT_AUDIENCE`, `JWT_JWKS_URI` | `index.php` (JWT sample) | Expected `iss`, expected audience and the JWKS endpoint of the identity provider. |
 | `<NAME>_FILE` | `Config\Env` | For any `NAME`: read the value from this file (Docker/Kubernetes secrets). |

@@ -27,6 +27,9 @@ use Symfony\Component\HttpFoundation\Response;
  */
 final class IdempotencyMiddleware implements MiddlewareInterface
 {
+    /** answers that mean "not now": kept, they would turn the retry into the same failure */
+    private const array TRY_AGAIN = [408, 425, 429];
+
     private const string KEY_FORMAT = '/^[A-Za-z0-9._:-]{8,128}$/D';
     private const array METHODS = ['POST', 'PATCH'];
 
@@ -80,7 +83,7 @@ final class IdempotencyMiddleware implements MiddlewareInterface
         }
 
         $body = $response->getContent();
-        if ($response->getStatusCode() >= 500 || false === $body) {
+        if ($response->getStatusCode() >= 500 || \in_array($response->getStatusCode(), self::TRY_AGAIN, true) || false === $body) { // an answer that asks the client to try again is not the answer to keep
             $this->store->release($key);
         } else {
             $this->store->complete($key, new StoredResponse($response->getStatusCode(), $body, $response->headers->get('Content-Type', 'application/octet-stream') ?? 'application/octet-stream'));

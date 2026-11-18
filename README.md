@@ -149,7 +149,7 @@ use Slimfony\Core\Worker\WorkerRunner;
 require __DIR__ . '/../vendor/autoload.php';
 
 $env = Env::fromGlobals();
-new Trust($env)->apply(); // TRUSTED_PROXIES / TRUSTED_HOSTS; nothing is trusted by default
+new Trust($env)->apply(); // TRUSTED_PROXIES / TRUSTED_HOSTS; no proxy is trusted by default (any Host is accepted until TRUSTED_HOSTS is set)
 
 $context = new RequestContext();
 $logger = new JsonStdoutLogger($env->string('LOG_LEVEL', 'info'), $context);

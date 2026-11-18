@@ -34,6 +34,9 @@ final class DbalIdempotencyStore implements IdempotencyStore
     /** @var \Closure(): int */
     private readonly \Closure $now;
 
+    /** @var array<string, int> when this process claimed a key: only that claim is finished or released, not one that took it over */
+    private array $claims = [];
+
     /**
      * @param (\Closure(): int)|null $now seconds; defaults to time()
      */
@@ -60,6 +63,8 @@ final class DbalIdempotencyStore implements IdempotencyStore
             [$key, $fingerprint, $now],
         );
         if (1 === $claimed) {
+            $this->claims[$key] = $now;
+
             return Outcome::Fresh;
         }
 
@@ -90,15 +95,22 @@ final class DbalIdempotencyStore implements IdempotencyStore
     #[\Override]
     public function complete(string $key, StoredResponse $response): void
     {
+        $claimedAt = $this->claims[$key] ?? null;
+        unset($this->claims[$key]);
         $this->connection->executeStatement(
-            "UPDATE idempotency_keys SET state = 'done', response_status = ?, response_body = ?, content_type = ?, created_at = ? WHERE idempotency_key = ?",
-            [$response->status, base64_encode($response->body), $response->contentType, ($this->now)(), $key],
+            "UPDATE idempotency_keys SET state = 'done', response_status = ?, response_body = ?, content_type = ?, created_at = ? WHERE idempotency_key = ?" . (null === $claimedAt ? '' : " AND state = 'working' AND created_at = ?"),
+            [$response->status, base64_encode($response->body), $response->contentType, ($this->now)(), $key, ...(null === $claimedAt ? [] : [$claimedAt])],
         );
     }
 
     #[\Override]
     public function release(string $key): void
     {
-        $this->connection->executeStatement('DELETE FROM idempotency_keys WHERE idempotency_key = ?', [$key]);
+        $claimedAt = $this->claims[$key] ?? null;
+        unset($this->claims[$key]);
+        $this->connection->executeStatement(
+            'DELETE FROM idempotency_keys WHERE idempotency_key = ?' . (null === $claimedAt ? '' : " AND state = 'working' AND created_at = ?"),
+            [$key, ...(null === $claimedAt ? [] : [$claimedAt])],
+        );
     }
 }

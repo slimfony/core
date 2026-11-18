@@ -36,6 +36,7 @@ final class JwksKeyProvider implements KeyProvider
     private array $keys = [];
     private float $loadedAt = 0.0;
     private float $lastRefetchAt = 0.0;
+    private float $failedAt = -\INF; // when the provider last failed to answer: no new attempt for minRefetchSeconds
 
     /**
      * @param (\Closure(string): string)|null $fetch returns the JWKS JSON document of a URI; defaults to a bounded HTTPS GET
@@ -99,6 +100,10 @@ final class JwksKeyProvider implements KeyProvider
             return;
         }
 
+        if ($now - $this->failedAt < $this->minRefetchSeconds) {
+            return; // the provider failed a moment ago: no request waits for it again, the keys already loaded are used
+        }
+
         // one worker fetches, the others keep using what they have (no thundering herd on the provider)
         if (apcu_add($this->cachePrefix . 'lock', 1, 10)) {
             try {
@@ -106,6 +111,7 @@ final class JwksKeyProvider implements KeyProvider
                 $this->adopt($json, $now);
                 apcu_store($this->cachePrefix . 'doc', ['json' => $json, 'at' => $now]);
             } catch (\Throwable $e) {
+                $this->failedAt = $now;
                 $this->logger?->warning('JWKS refresh failed, keeping the keys already loaded: {error}', ['error' => $e::class]);
                 if ([] === $this->keys && \is_array($shared) && \is_string($shared['json'] ?? null)) {
                     $this->adopt($shared['json'], $now); // an expired document is better than none
@@ -149,7 +155,15 @@ final class JwksKeyProvider implements KeyProvider
             $usable[] = $jwk;
         }
 
-        $this->keys = array_map(PreparedKey::of(...), JWK::parseKeySet(['keys' => $usable]));
+        $parsed = [];
+        foreach ($usable as $jwk) {
+            try { // a key this library cannot use (an unsupported curve) must not take the others with it
+                $parsed += array_map(PreparedKey::of(...), JWK::parseKeySet(['keys' => [$jwk]]));
+            } catch (\Throwable $e) {
+                $this->logger?->warning('JWKS key skipped: {error}', ['error' => $e::class, 'kid' => $jwk['kid']]);
+            }
+        }
+        $this->keys = $parsed;
         $this->loadedAt = $now;
     }
 

@@ -45,6 +45,18 @@ final class JwtAuthenticatorTest extends TestCase
         return Request::create('/', server: ['HTTP_AUTHORIZATION' => 'Bearer ' . $token]);
     }
 
+    public function testTheSchemeNameIsNotCaseSensitive(): void
+    {
+        $keys = JwtKeys::generate('ES256');
+        $token = $keys->token(self::claims());
+
+        foreach (['bearer', 'BEARER'] as $scheme) {
+            $request = Request::create('/', server: ['HTTP_AUTHORIZATION' => $scheme . ' ' . $token]);
+
+            self::assertNotNull(self::authenticator($keys)->authenticate($request), $scheme);
+        }
+    }
+
     #[DataProvider('algorithms')]
     public function testAValidTokenBecomesAPrincipalWithSubjectScopesAndClaims(string $algorithm): void
     {

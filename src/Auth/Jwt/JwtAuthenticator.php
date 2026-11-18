@@ -58,7 +58,7 @@ final class JwtAuthenticator implements Authenticator
     public function authenticate(Request $request): ?Principal
     {
         $header = $request->headers->get('Authorization');
-        if (!\is_string($header) || !str_starts_with($header, 'Bearer ')) {
+        if (!\is_string($header) || 0 !== strncasecmp($header, 'Bearer ', 7)) {
             return null;
         }
         $token = substr($header, 7);

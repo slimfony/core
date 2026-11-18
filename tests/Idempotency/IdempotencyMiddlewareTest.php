@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace Slimfony\Core\Tests\Idempotency;
 
+use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
 use Slimfony\Core\Auth\Principal;
 use Slimfony\Core\Http\Attributes;
 use Slimfony\Core\Idempotency\DbalIdempotencyStore;
 use Slimfony\Core\Idempotency\IdempotencyMiddleware;
+use Slimfony\Core\Idempotency\Outcome;
+use Slimfony\Core\Idempotency\StoredResponse;
 use Slimfony\Core\Tests\Support\Attempts;
 use Slimfony\Core\Tests\Support\TestDb;
 use Symfony\Component\HttpFoundation\Request;
@@ -19,10 +22,11 @@ final class IdempotencyMiddlewareTest extends TestCase
     private int $clock = 1_000_000;
     private IdempotencyMiddleware $middleware;
     private DbalIdempotencyStore $store;
+    private Connection $connection;
 
     protected function setUp(): void
     {
-        $connection = TestDb::connection();
+        $connection = $this->connection = TestDb::connection();
         $connection->executeStatement('DROP TABLE IF EXISTS idempotency_keys');
         $connection->executeStatement(DbalIdempotencyStore::TABLE_SQL);
         $this->store = new DbalIdempotencyStore($connection, ttlSeconds: 3600, lockSeconds: 60, now: fn(): int => $this->clock);
@@ -145,6 +149,32 @@ final class IdempotencyMiddlewareTest extends TestCase
         $this->clock += 61;
         $this->middleware->process(self::request(key: 'order-key-dead00001'), self::handler($ran));
         self::assertSame(3, $ran->n, 'after the lock time the key is free again');
+    }
+
+    public function testAnAnswerThatAsksTheClientToTryAgainIsNotKept(): void
+    {
+        $ran = new Attempts();
+
+        $this->middleware->process(self::request(), self::handler($ran, 429));
+        $second = $this->middleware->process(self::request(), self::handler($ran, 201));
+
+        self::assertSame(2, $ran->n, 'the second request did the work instead of replaying the 429');
+        self::assertSame(201, $second->getStatusCode());
+    }
+
+    public function testARequestThatLostItsClaimDoesNotTouchTheClaimOfTheOneThatTookOver(): void
+    {
+        $connection = $this->connection;
+        $slow = new DbalIdempotencyStore($connection, lockSeconds: 60, now: fn(): int => $this->clock);
+        $other = new DbalIdempotencyStore($connection, lockSeconds: 60, now: fn(): int => $this->clock);
+
+        self::assertSame(Outcome::Fresh, $slow->begin('key-of-a-slow-request', 'fp'));
+        $this->clock += 61; // the slow request outlives the lock: another one takes the key over
+        self::assertSame(Outcome::Fresh, $other->begin('key-of-a-slow-request', 'fp'));
+
+        $slow->complete('key-of-a-slow-request', new StoredResponse(201, 'x', 'text/plain')); // the slow one finishes at last
+
+        self::assertSame(Outcome::InProgress, $this->store->begin('key-of-a-slow-request', 'fp'), 'the claim of the second request is still there');
     }
 
     public function testRoutesAndRequestsThatDidNotAskForItRunAsUsual(): void

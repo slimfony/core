@@ -168,6 +168,38 @@ final class JwksKeyProviderTest extends TestCase
         self::assertNotNull($second->keyFor('k1'), 'an expired document is better than none');
     }
 
+    public function testADeadProviderIsNotAskedAgainOnEveryRequest(): void
+    {
+        $endpoint = new FakeJwksEndpoint([JwtKeys::generate('ES256')]);
+        $clock = new TestClock(1000.0);
+        $provider = new JwksKeyProvider(self::URI, ttlSeconds: 600, minRefetchSeconds: 2, cachePrefix: $this->prefix, fetch: $endpoint(...), now: $clock(...));
+        self::assertNotNull($provider->keyFor('k1'));
+
+        $endpoint->down = true;
+        $clock->now = 1000.0 + 601;
+        for ($i = 0; $i < 10; ++$i) {
+            $clock->now += 0.1; // ten requests within a second, all with the expired document
+            self::assertNotNull($provider->keyFor('k1'));
+        }
+
+        self::assertSame(2, $endpoint->requests, 'one failed attempt, then the provider is left alone for minRefetchSeconds');
+    }
+
+    public function testOneKeyThatCannotBeUsedDoesNotTakeTheOthersWithIt(): void
+    {
+        $keys = JwtKeys::generate('ES256');
+        $document = (string) json_encode(['keys' => [
+            ['kid' => 'odd-curve', 'kty' => 'EC', 'crv' => 'secp256k1', 'x' => 'AAAA', 'y' => 'AAAA'],
+            ['kid' => 'k1'] + $keys->jwk,
+        ]]);
+        $logger = new RecordingLogger();
+        $provider = new JwksKeyProvider(self::URI, $logger, cachePrefix: $this->prefix, fetch: static fn(): string => $document);
+
+        self::assertNotNull($provider->keyFor('k1'));
+        self::assertNull($provider->keyFor('odd-curve'));
+        self::assertStringStartsWith('warning: JWKS key skipped', $logger->records[0]);
+    }
+
     public function testKeysThatCannotBeAddressedOrAreForEncryptionAreIgnored(): void
     {
         $keys = JwtKeys::generate('ES256');
