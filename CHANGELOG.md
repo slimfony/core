@@ -4,6 +4,9 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+### Documentation
+- `guide/failure-behaviour.md`: what happens when the database is away for several seconds, with the PgBouncer settings that decide how long a request waits (measured in the demo with a failure injection under load).
+
 ## [0.7.0] - 2026-11-10
 
 No change to the library code. This release is about how it is checked and how it is delivered.
