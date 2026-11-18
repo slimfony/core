@@ -16,13 +16,12 @@ use Slimfony\Core\Tests\Fixtures\Counter;
 use Slimfony\Core\Tests\Smoke\Info;
 use Slimfony\Core\Tests\Smoke\Logs;
 use Slimfony\Core\Tests\Smoke\Ping;
-use Slimfony\Core\Worker\ResetPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 
 return static function (ContainerBuilder $c): void {
     // created in public/index.php (the logger needs them before the container exists), handed over as synthetic services
-    $c->register(RequestContext::class)->setSynthetic(true)->setPublic(true)->addTag(ResetPass::TAG);
+    $c->register(RequestContext::class)->setSynthetic(true)->setPublic(true);
     $c->register(LoggerInterface::class)->setSynthetic(true)->setPublic(true);
     $c->register(MetricsRegistry::class)->setSynthetic(true)->setPublic(true);
 

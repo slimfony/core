@@ -39,6 +39,17 @@ final class KernelFailureTest extends TestCase
         self::assertStringNotContainsString('secret', (string) $response->getContent());
     }
 
+    public function testTheMiddlewareAroundAFailingOneStillAnswersTheRequest(): void
+    {
+        $kernel = new Kernel(self::FIXTURES . '/Bad/throwing_inner_middleware.php', self::FIXTURES . '/Bad/empty_routes.php', logger: new RecordingLogger());
+
+        $response = $kernel->handle(Request::create('/anything', server: ['HTTP_X_REQUEST_ID' => 'abc-12345']));
+
+        self::assertSame(500, $response->getStatusCode());
+        self::assertSame('abc-12345', $response->headers->get('X-Request-Id'));
+        self::assertSame('nosniff', $response->headers->get('X-Content-Type-Options'));
+    }
+
     #[DataProvider('brokenConfigurations')]
     public function testMisconfigurationFailsAtBootNotOnTheFirstRequest(string $services, string $routes): void
     {

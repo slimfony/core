@@ -10,6 +10,7 @@ use Slimfony\Core\Exception\ConfigurationException;
 use Slimfony\Core\Kernel;
 use Slimfony\Core\Tests\Fixtures\Greeter;
 use Slimfony\Core\Tests\Support\FakeAuthenticator;
+use Slimfony\Core\Tests\Support\ResetCounter;
 use Slimfony\Core\Tests\Support\TestKernel;
 
 /** Code that runs without an HTTP request (a consumer, a relay) reaches the container through Kernel::get(). */
@@ -39,5 +40,16 @@ final class KernelServiceAccessTest extends TestCase
                 self::assertStringContainsString('setPublic(true)', $e->getMessage());
             }
         }
+    }
+
+    public function testAnObjectHandedOverBeforeTheContainerIsResetWithoutATag(): void
+    {
+        $counter = new ResetCounter();
+        $kernel = new Kernel(TestKernel::FIXTURES . '/synthetic_resettable.php', TestKernel::FIXTURES . '/Bad/empty_routes.php', synthetic: [ResetCounter::class => $counter]);
+
+        $kernel->reset();
+        $kernel->reset();
+
+        self::assertSame(2, $counter->resets);
     }
 }

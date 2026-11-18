@@ -100,12 +100,11 @@ use Psr\Log\LoggerInterface;
 use Slimfony\Core\Http\RequestIdMiddleware;
 use Slimfony\Core\Http\SecurityHeadersMiddleware;
 use Slimfony\Core\Log\RequestContext;
-use Slimfony\Core\Worker\ResetPass;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 
 return static function (ContainerBuilder $c): void {
     // created in public/index.php (the logger is needed before the container exists) and handed over as synthetic services
-    $c->register(RequestContext::class)->setSynthetic(true)->setPublic(true)->addTag(ResetPass::TAG);
+    $c->register(RequestContext::class)->setSynthetic(true)->setPublic(true); // reset after every request: it implements ResetInterface
     $c->register(LoggerInterface::class)->setSynthetic(true)->setPublic(true);
 
     $c->register(RequestIdMiddleware::class)->setAutowired(true);

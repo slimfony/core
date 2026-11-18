@@ -61,4 +61,20 @@ final class ProcessMetricsEndpointTest extends TestCase
 
         $this->addToAssertionCount(1);
     }
+
+    public function testTheAddressListIsCheckedAgainstTheRealPeer(): void
+    {
+        $metrics = new MetricsRegistry(new InMemoryStorage());
+        $elsewhere = new ProcessMetricsEndpoint('tcp://127.0.0.1:0', new MetricsController($metrics, null, ['10.0.0.0/8']));
+        $local = new ProcessMetricsEndpoint('tcp://127.0.0.1:0', new MetricsController($metrics, null, ['127.0.0.0/8']));
+
+        foreach ([[$elsewhere, 'HTTP/1.1 403'], [$local, 'HTTP/1.1 200']] as [$endpoint, $status]) {
+            $client = stream_socket_client('tcp://' . $endpoint->address(), $code, $message, 2);
+            self::assertIsResource($client);
+            fwrite($client, "GET /metrics HTTP/1.1\r\nHost: relay\r\n\r\n");
+            $endpoint->serve();
+
+            self::assertStringStartsWith($status, (string) stream_get_contents($client));
+        }
+    }
 }

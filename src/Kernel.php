@@ -73,7 +73,16 @@ final class Kernel
             if (!$middleware instanceof MiddlewareInterface) {
                 throw new ConfigurationException(\sprintf('Service "%s" must implement %s.', $id, MiddlewareInterface::class));
             }
-            $next = $chain;
+            $inner = $chain;
+            $errors = $this->errors;
+            // the layers around this middleware get a response even when it, or one inside it, throws
+            $next = static function (Request $request) use ($inner, $errors): Response {
+                try {
+                    return $inner($request);
+                } catch (\Throwable $e) {
+                    return $errors->respond($request, $e);
+                }
+            };
             $chain = static fn(Request $request): Response => $middleware->process($request, $next);
         }
         $this->chain = $chain;

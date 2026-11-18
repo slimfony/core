@@ -18,7 +18,7 @@ use Slimfony\Core\Database\Retry;
 $env = Env::fromGlobals();
 
 $connection = ConnectionFactory::create($env->string('DATABASE_URL'), transactionPooling: $env->bool('PGBOUNCER'));
-$lifecycle = new ConnectionLifecycle($connection, idleSeconds: 30); // register it as a synthetic service tagged with ResetPass::TAG
+$lifecycle = new ConnectionLifecycle($connection, idleSeconds: 30); // register it as a synthetic service: it implements `ResetInterface`, so it is reset after every request::TAG
 $retry = new Retry($connection);
 
 // transient failures: the whole transaction is re-run on deadlock; a lost connection only with idempotent: true
