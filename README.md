@@ -8,6 +8,7 @@
 [![PHP](https://img.shields.io/badge/PHP-8.4%2B-777BB4?logo=php&logoColor=white)](composer.json)
 [![Symfony](https://img.shields.io/badge/Symfony-8.1-000000?logo=symfony&logoColor=white)](https://symfony.com/releases/8.1)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Anthropic CVP](https://img.shields.io/badge/Anthropic_CVP-Defense_Access_Verified-D97757?style=flat-square&logo=anthropic&logoColor=white)
 
 A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is built from a few Symfony components, compiled once at build time, and keeps no state between requests.
 
