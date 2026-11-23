@@ -4,6 +4,11 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-11-23
+
+### Fixed
+- **`Retry` no longer repeats a connect failure that cannot get better**: a wrong password, an unknown database or role, no `pg_hba.conf` entry (PostgreSQL reports them all as SQLSTATE 08006, so the message text decides) fail at once. 1.0.3 repeated them three times. A server that is away, starting up or refusing connections is still repeated, for any work.
+
 ## [1.0.3] - 2026-11-23
 
 ### Fixed
@@ -153,7 +158,8 @@ First tagged release: the foundation of the core. Pre-1.0: only classes marked `
 - Quality gates: PHPStan level max, php-cs-fixer (PER-CS and PHP 8.4 risky sets), architecture tests (strict_types, final, `#[\Override]`, typed constants, `@api`/`@internal`, declared dependencies only), random-order tests, executable README samples.
 - Supply chain: GitHub Actions pinned to commit SHAs, Dependabot, weekly outdated-dependency check, `composer audit` in CI.
 
-[Unreleased]: https://github.com/slimfony/core/compare/v1.0.3...HEAD
+[Unreleased]: https://github.com/slimfony/core/compare/v1.0.4...HEAD
+[1.0.4]: https://github.com/slimfony/core/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/slimfony/core/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/slimfony/core/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/slimfony/core/compare/v1.0.0...v1.0.1

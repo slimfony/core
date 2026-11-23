@@ -199,4 +199,26 @@ final class RetryTest extends TestCase
         self::assertSame(0, $ran->n, 'the work never ran: there was no connection');
         self::assertSame(2, $slept->n, 'three attempts, a pause between them');
     }
+
+    public function testAWrongPasswordIsNotRetried(): void
+    {
+        $url = getenv('TEST_DATABASE_URL');
+        if (!\is_string($url) || !str_starts_with($url, 'pdo-pgsql:')) {
+            self::markTestSkipped('Needs the PostgreSQL of the CI (TEST_DATABASE_URL).');
+        }
+        $params = new \Doctrine\DBAL\Tools\DsnParser(['pdo-pgsql' => 'pdo_pgsql'])->parse($url);
+        $params['password'] = 'not-the-password';
+        $slept = new Attempts();
+        $retry = new Retry(DriverManager::getConnection($params), sleep: static function (int $micros) use ($slept): void {
+            ++$slept->n;
+        });
+
+        try {
+            $retry->read(static fn(Connection $c): mixed => $c->fetchOne('SELECT 1'));
+            self::fail('the password is wrong');
+        } catch (\Doctrine\DBAL\Exception\ConnectionException) {
+        }
+
+        self::assertSame(0, $slept->n, 'refused at once, not tried three times');
+    }
 }

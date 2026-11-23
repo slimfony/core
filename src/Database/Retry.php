@@ -39,6 +39,9 @@ final class Retry
     private const array FAILOVER_SQLSTATES = ['25006', '57P03'];
     private const string LOCK_TIMEOUT_SQLSTATE = '55P03';
 
+    /** PostgreSQL reports every connect failure as 08006; the text tells a settings mistake from a server that is away */
+    private const string CONNECT_REFUSED_FOR_GOOD = '/authentication failed|does not exist|no pg_hba\.conf entry|permission denied|invalid (?:password|authorization)|password (?:is )?required/i';
+
     /** @var \Closure(int): void */
     private readonly \Closure $sleep;
 
@@ -104,6 +107,9 @@ final class Retry
                 $this->connection->getNativeConnection(); // connecting on its own: a failure here ran nothing, so it is safe to repeat for any work
             } catch (ConnectionException $e) {
                 $this->connection->close();
+                if (1 === preg_match(self::CONNECT_REFUSED_FOR_GOOD, $e->getMessage())) {
+                    throw $e; // a wrong password or an unknown database will not be right the next time: fail at once
+                }
                 $this->again($attempt, self::REASON_CONNECTION_LOST, $e, 'Cannot connect to the database, retrying');
                 ($this->sleep)(random_int(1_000, $this->backoffMicros * $attempt));
 
