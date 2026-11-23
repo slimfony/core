@@ -9,4 +9,5 @@ updates:
     directory: /
     schedule:
       interval: weekly
-    versioning-strategy: increase
+    # a library does not raise the minimum of what it accepts just because a newer version exists
+    versioning-strategy: increase-if-necessary

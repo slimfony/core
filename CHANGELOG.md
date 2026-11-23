@@ -4,6 +4,11 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-11-23
+
+### Changed
+- `doctrine/dbal` is `^4.5` again (4.6 is tested in CI and is what gets installed): an automatic update had raised the minimum to 4.6, which nothing in the core needs, and which would have forced it on everyone who uses the library. Dependabot no longer raises the minimums (`versioning-strategy: increase-if-necessary`).
+
 ## [1.0.4] - 2026-11-23
 
 ### Fixed
@@ -158,7 +163,8 @@ First tagged release: the foundation of the core. Pre-1.0: only classes marked `
 - Quality gates: PHPStan level max, php-cs-fixer (PER-CS and PHP 8.4 risky sets), architecture tests (strict_types, final, `#[\Override]`, typed constants, `@api`/`@internal`, declared dependencies only), random-order tests, executable README samples.
 - Supply chain: GitHub Actions pinned to commit SHAs, Dependabot, weekly outdated-dependency check, `composer audit` in CI.
 
-[Unreleased]: https://github.com/slimfony/core/compare/v1.0.4...HEAD
+[Unreleased]: https://github.com/slimfony/core/compare/v1.0.5...HEAD
+[1.0.5]: https://github.com/slimfony/core/compare/v1.0.4...v1.0.5
 [1.0.4]: https://github.com/slimfony/core/compare/v1.0.3...v1.0.4
 [1.0.3]: https://github.com/slimfony/core/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/slimfony/core/compare/v1.0.1...v1.0.2
