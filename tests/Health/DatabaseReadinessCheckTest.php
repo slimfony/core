@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Slimfony\Core\Tests\Health;
 
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception;
 use PHPUnit\Framework\TestCase;
@@ -28,5 +29,18 @@ final class DatabaseReadinessCheckTest extends TestCase
         $this->expectException(Exception::class);
 
         $check->check();
+    }
+
+    public function testAFailedProbeClosesTheConnectionSoTheNextOneStartsFresh(): void
+    {
+        $connection = $this->createMock(Connection::class);
+        $connection->method('fetchOne')->willThrowException(new \RuntimeException('server closed the connection unexpectedly'));
+        $connection->expects(self::once())->method('close');
+
+        try {
+            new DatabaseReadinessCheck($connection)->check();
+            self::fail('the failure must still reach the caller');
+        } catch (\RuntimeException) {
+        }
     }
 }

@@ -146,4 +146,15 @@ final class WorkerRunnerTest extends TestCase
 
         new GarbageCollection(rootsThreshold: 0);
     }
+
+    public function testAnOutputBufferTheControllerLeftOpenDoesNotStayOpenAfterTheRequest(): void
+    {
+        $before = ob_get_level();
+
+        $result = $this->runWorker('/leaky', 3);
+
+        self::assertSame($before, ob_get_level(), 'the buffers of the requests are all closed');
+        self::assertSame(3, $result['handled']);
+        self::assertSame('okokok', $result['output']);
+    }
 }

@@ -4,6 +4,8 @@
 
 A queue consumer, an outbox relay or a scheduled job boots the same container as the web workers and reaches its services through `Kernel::get()`; declare the services it needs with `->setPublic(true)`. `ConsumerRunner` is the loop: after every message the request-scoped services are reset, and the loop ends after a number of messages, above a memory limit, on SIGTERM or SIGINT (with `ext-pcntl`), or when the source is empty. A failing reset stops it, because the state is unknown.
 
+`ConsumerRunner` resets the services after every message, but it does not call `ConnectionLifecycle::beginRequest()` (the idle-connection guard of the HTTP chain): a consumer that sat idle longer than the pooler keeps its connections should call it at the start of each message, or run its database work through `Retry`, which repeats a read on a lost connection.
+
 ```php
 <?php
 

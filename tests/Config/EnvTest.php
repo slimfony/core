@@ -53,4 +53,13 @@ final class EnvTest extends TestCase
             }
         }
     }
+
+    public function testASwitchWithWhitespaceAroundItIsStillASwitch(): void
+    {
+        $env = new Env(['A' => 'true ', 'B' => " off
+"]);
+
+        self::assertTrue($env->bool('A'));
+        self::assertFalse($env->bool('B'));
+    }
 }

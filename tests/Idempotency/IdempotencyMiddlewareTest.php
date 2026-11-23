@@ -10,6 +10,7 @@ use Slimfony\Core\Auth\Principal;
 use Slimfony\Core\Http\Attributes;
 use Slimfony\Core\Idempotency\DbalIdempotencyStore;
 use Slimfony\Core\Idempotency\IdempotencyMiddleware;
+use Slimfony\Core\Idempotency\IdempotencyStore;
 use Slimfony\Core\Idempotency\Outcome;
 use Slimfony\Core\Idempotency\StoredResponse;
 use Slimfony\Core\Tests\Support\Attempts;
@@ -219,5 +220,35 @@ final class IdempotencyMiddlewareTest extends TestCase
         });
 
         self::assertMatchesRegularExpression('/^[0-9a-f]{64}$/D', $keys[0], 'a hash: the caller and the key, not the raw header');
+    }
+
+    public function testAnAnswerIsStillSentWhenKeepingItFails(): void
+    {
+        $store = new class implements IdempotencyStore {
+            #[\Override]
+            public function begin(string $key, string $fingerprint): Outcome
+            {
+                return Outcome::Fresh;
+            }
+
+            #[\Override]
+            public function stored(string $key): ?StoredResponse
+            {
+                return null;
+            }
+
+            #[\Override]
+            public function complete(string $key, StoredResponse $response): void
+            {
+                throw new \RuntimeException('the database went away');
+            }
+
+            #[\Override]
+            public function release(string $key): void {}
+        };
+
+        $response = new IdempotencyMiddleware($store)->process(self::request(), self::handler(new Attempts()));
+
+        self::assertSame(201, $response->getStatusCode(), 'the work was done: the client gets its answer, not a 500 that invites a duplicate');
     }
 }

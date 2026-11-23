@@ -150,11 +150,15 @@ final class WorkerRunner
 
     private function serve(): void
     {
+        $level = ob_get_level();
         ob_start();
         try {
             $response = $this->kernel->handle(($this->requestFactory)());
         } finally {
-            $stray = (string) ob_get_clean();
+            $stray = '';
+            while (ob_get_level() > $level) { // also a buffer a controller started and did not close
+                $stray .= (string) ob_get_clean();
+            }
         }
         if ('' !== $stray) {
             $this->logger?->warning('Controller wrote directly to the output; discarded', ['bytes' => \strlen($stray)]);

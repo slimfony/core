@@ -37,6 +37,7 @@ final class Retry
 
     /** @var list<string> */
     private const array FAILOVER_SQLSTATES = ['25006', '57P03'];
+    private const string LOCK_TIMEOUT_SQLSTATE = '55P03';
 
     /** @var \Closure(int): void */
     private readonly \Closure $sleep;
@@ -110,11 +111,14 @@ final class Retry
             } catch (RetryableException $e) {
                 $this->again($attempt, self::REASON_RETRYABLE, $e, 'Retryable database error, retrying transaction');
             } catch (DriverException $e) {
-                if (!\in_array($e->getSQLState(), self::FAILOVER_SQLSTATES, true)) {
+                if (self::LOCK_TIMEOUT_SQLSTATE === $e->getSQLState()) { // DBAL has no class for it; like a deadlock, the statement did not run
+                    $this->again($attempt, self::REASON_RETRYABLE, $e, 'Lock timeout, retrying transaction');
+                } elseif (\in_array($e->getSQLState(), self::FAILOVER_SQLSTATES, true)) {
+                    $this->connection->close(); // the next attempt connects again, to whichever server is the primary by then
+                    $this->again($attempt, self::REASON_FAILOVER, $e, 'The database server is not accepting writes (failover?), retrying on a new connection');
+                } else {
                     throw $e;
                 }
-                $this->connection->close(); // the next attempt connects again, to whichever server is the primary by then
-                $this->again($attempt, self::REASON_FAILOVER, $e, 'The database server is not accepting writes (failover?), retrying on a new connection');
             }
 
             ($this->sleep)(random_int(1_000, $this->backoffMicros * $attempt)); // jitter

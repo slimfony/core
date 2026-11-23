@@ -160,4 +160,18 @@ final class RetryTest extends TestCase
         self::assertSame(2, $attempts->n, 'the write was refused (SQLSTATE 25006) and went through on the new connection');
         self::assertSame(1, TestDb::count($connection));
     }
+
+    public function testALockTimeoutIsRetriedLikeADeadlock(): void
+    {
+        $attempts = new Attempts();
+        $timeout = new \Doctrine\DBAL\Exception\DriverException(new FakeDriverException('canceling statement due to lock timeout', '55P03'), null);
+
+        self::retry(TestDb::connection())->transactional(static function () use ($attempts, $timeout): void {
+            if (1 === ++$attempts->n) {
+                throw $timeout; // the statement waited for a lock and never ran
+            }
+        }, idempotent: false);
+
+        self::assertSame(2, $attempts->n);
+    }
 }

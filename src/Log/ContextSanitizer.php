@@ -45,7 +45,8 @@ final class ContextSanitizer
      */
     public function mask(string $text): string
     {
-        $text = preg_replace('#(://[^/\s:@]+:)[^@\s]+@#', '$1[redacted]@', $text) ?? $text;
+        $text = preg_replace('#(://[^/\s:@]+:)[^\s/]+@#', '$1[redacted]@', $text) ?? $text; // up to the last @: a password may contain one
+        $text = preg_replace('/\b(password|passwd|pwd|secret|token|access_token|refresh_token|api[_-]?key)=[^&\s"\']+/i', '$1=[redacted]', $text) ?? $text;
         $text = preg_replace('#\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{6,}#i', '$1 [redacted]', $text) ?? $text;
 
         return preg_replace('#\beyJ[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]{4,}\.[A-Za-z0-9_-]*#', '[redacted jwt]', $text) ?? $text;

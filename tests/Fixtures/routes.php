@@ -7,6 +7,7 @@ use Slimfony\Core\Tests\Fixtures\Chatty;
 use Slimfony\Core\Tests\Fixtures\Count;
 use Slimfony\Core\Tests\Fixtures\Gone;
 use Slimfony\Core\Tests\Fixtures\Hello;
+use Slimfony\Core\Tests\Fixtures\Leaky;
 use Slimfony\Core\Tests\Fixtures\NotAResponse;
 use Slimfony\Core\Tests\Fixtures\UseBroken;
 use Symfony\Component\Routing\Route;
@@ -17,6 +18,7 @@ return static function (RouteCollection $r): void {
     $r->add('count', new Route('/count', ['_controller' => Count::class]));
     $r->add('broken', new Route('/broken', ['_controller' => UseBroken::class]));
     $r->add('chatty', new Route('/chatty', ['_controller' => Chatty::class]));
+    $r->add('leaky', new Route('/leaky', ['_controller' => Leaky::class]));
     $r->add('notresponse', new Route('/notresponse', ['_controller' => NotAResponse::class]));
     $r->add('boom', new Route('/boom', ['_controller' => Boom::class]));
     $r->add('gone', new Route('/gone', ['_controller' => Gone::class]));

@@ -72,4 +72,15 @@ final class ValidationTest extends TestCase
 
         new Env(['DB_PASSWORD_FILE' => '/no/such/file'])->string('DB_PASSWORD');
     }
+
+    public function testCredentialsInQueryStringsAndPasswordsWithAnAtSignAreMasked(): void
+    {
+        $text = new ContextSanitizer()->mask('connect postgres://app:p@ss@db.internal/shop?password=hunter2&x=1 failed, retry with token=abc123 or api_key=k-9');
+
+        foreach (['p@ss', 'hunter2', 'abc123', 'k-9'] as $secret) {
+            self::assertStringNotContainsString($secret, $text);
+        }
+        self::assertStringContainsString('@db.internal/shop', $text);
+        self::assertStringContainsString('x=1', $text);
+    }
 }

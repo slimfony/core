@@ -4,6 +4,21 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-23
+
+A bug-fix release after a second independent review. No API change.
+
+### Fixed
+- **`Retry` retries a lock timeout** (SQLSTATE 55P03, `lock_timeout`), as its documentation says: DBAL has no exception class for it, so it used to fail at the first attempt. It is counted with the reason `retryable`.
+- **`DatabaseReadinessCheck` closes the connection when its probe fails**, so a dead connection DBAL did not notice (a reset by the peer) cannot keep `/readyz` failing until the pod is restarted.
+- **`WorkerRunner` closes every output buffer a request left open** (a controller that called `ob_start()` and not `ob_end_*()`); only one was closed before, and the next request ran inside the leaked buffer.
+- **`IdempotencyMiddleware` sends the answer when keeping it fails** (the database went away after the work was done) instead of a `500` that invites a duplicate.
+- **Log messages mask `password=`, `token=`, `access_token=`, `api_key=` and `secret=` values** in query strings and texts, and a password that contains an `@` in a connection URL is masked up to the last one.
+- `Env::bool()` ignores whitespace around the value.
+
+### Documentation
+- The idempotency table is not purged by the store: the guide says how. The consumers page says that `ConsumerRunner` does not call `ConnectionLifecycle::beginRequest()`.
+
 ## [1.0.1] - 2026-11-19
 
 No change to the library code.
@@ -130,7 +145,8 @@ First tagged release: the foundation of the core. Pre-1.0: only classes marked `
 - Quality gates: PHPStan level max, php-cs-fixer (PER-CS and PHP 8.4 risky sets), architecture tests (strict_types, final, `#[\Override]`, typed constants, `@api`/`@internal`, declared dependencies only), random-order tests, executable README samples.
 - Supply chain: GitHub Actions pinned to commit SHAs, Dependabot, weekly outdated-dependency check, `composer audit` in CI.
 
-[Unreleased]: https://github.com/slimfony/core/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/slimfony/core/compare/v1.0.2...HEAD
+[1.0.2]: https://github.com/slimfony/core/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/slimfony/core/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/slimfony/core/compare/v0.7.0...v1.0.0
 [0.7.0]: https://github.com/slimfony/core/compare/v0.6.0...v0.7.0

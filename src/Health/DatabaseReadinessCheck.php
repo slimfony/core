@@ -25,6 +25,12 @@ final class DatabaseReadinessCheck implements ReadinessCheck
     #[\Override]
     public function check(): void
     {
-        $this->connection->fetchOne('SELECT 1');
+        try {
+            $this->connection->fetchOne('SELECT 1');
+        } catch (\Throwable $e) {
+            $this->connection->close(); // a dead connection DBAL did not notice must not make every later probe fail too
+
+            throw $e;
+        }
     }
 }

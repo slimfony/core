@@ -68,7 +68,7 @@ final class Env
             return $default;
         }
 
-        return match (strtolower($raw)) {
+        return match (strtolower(trim($raw))) {
             '1', 'true', 'yes', 'on' => true,
             '0', 'false', 'no', 'off', '' => false,
             default => throw new ConfigurationException(\sprintf('%s must be a boolean (1/0, true/false, yes/no, on/off).', $name)),

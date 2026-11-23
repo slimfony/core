@@ -86,7 +86,10 @@ final class IdempotencyMiddleware implements MiddlewareInterface
         if ($response->getStatusCode() >= 500 || \in_array($response->getStatusCode(), self::TRY_AGAIN, true) || false === $body) { // an answer that asks the client to try again is not the answer to keep
             $this->store->release($key);
         } else {
-            $this->store->complete($key, new StoredResponse($response->getStatusCode(), $body, $response->headers->get('Content-Type', 'application/octet-stream') ?? 'application/octet-stream'));
+            try {
+                $this->store->complete($key, new StoredResponse($response->getStatusCode(), $body, $response->headers->get('Content-Type', 'application/octet-stream') ?? 'application/octet-stream'));
+            } catch (\Throwable) { // the work is done and the client should get its answer, not a 500 that invites a duplicate; the claim runs out by itself
+            }
         }
 
         return $response;
