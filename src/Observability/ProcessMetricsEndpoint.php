@@ -58,7 +58,7 @@ final class ProcessMetricsEndpoint
             stream_set_timeout($connection, 1);
             $response = $this->respond($this->readHead($connection), (string) stream_socket_get_name($connection, true));
             $body = (string) $response->getContent();
-            fwrite($connection, \sprintf(
+            $this->write($connection, \sprintf(
                 "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %d\r\nConnection: close\r\n\r\n%s",
                 $response->getStatusCode(),
                 Response::$statusTexts[$response->getStatusCode()] ?? 'Unknown',
@@ -68,6 +68,31 @@ final class ProcessMetricsEndpoint
             ));
         } finally {
             fclose($connection);
+        }
+    }
+
+    /**
+     * Writes the answer within the same second a request head may take: a peer that sends a request and never reads
+     * the answer must not hold the process (stream_set_timeout covers reads only).
+     *
+     * @param resource $connection
+     */
+    private function write($connection, string $payload): void
+    {
+        stream_set_blocking($connection, false);
+        $deadline = microtime(true) + self::HEAD_SECONDS;
+        for ($offset = 0, $length = \strlen($payload); $offset < $length && microtime(true) < $deadline;) {
+            $written = fwrite($connection, substr($payload, $offset));
+            if (false === $written) {
+                return;
+            }
+            $offset += $written;
+            if (0 === $written) { // the peer's buffer is full: wait a moment for room
+                $read = null;
+                $write = [$connection];
+                $except = null;
+                stream_select($read, $write, $except, 0, 50_000);
+            }
         }
     }
 

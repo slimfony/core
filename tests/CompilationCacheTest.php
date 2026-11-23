@@ -52,4 +52,17 @@ final class CompilationCacheTest extends TestCase
 
         new CompilationCache($cache->path . '/a-file/cache')->store(new ContainerCompiler(TestKernel::FIXTURES . '/services.php', TestKernel::FIXTURES . '/routes.php')->compile());
     }
+
+    public function testAnotherWarmupDoesNotLeaveTheFilesOfTheEarlierOneBehind(): void
+    {
+        $cache = new TempDir();
+        $store = new CompilationCache($cache->path);
+
+        foreach (range(1, 3) as $ignored) {
+            $store->store(new ContainerCompiler(TestKernel::FIXTURES . '/services.php', TestKernel::FIXTURES . '/routes.php')->compile());
+        }
+
+        self::assertCount(3, $cache->files(), 'one container, one route table and the manifest');
+        self::assertNotNull($store->load());
+    }
 }

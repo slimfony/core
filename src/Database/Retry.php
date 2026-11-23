@@ -101,6 +101,16 @@ final class Retry
 
         for ($attempt = 1;; ++$attempt) {
             try {
+                $this->connection->getNativeConnection(); // connecting on its own: a failure here ran nothing, so it is safe to repeat for any work
+            } catch (ConnectionException $e) {
+                $this->connection->close();
+                $this->again($attempt, self::REASON_CONNECTION_LOST, $e, 'Cannot connect to the database, retrying');
+                ($this->sleep)(random_int(1_000, $this->backoffMicros * $attempt));
+
+                continue;
+            }
+
+            try {
                 return $once();
             } catch (ConnectionException $e) { // includes ConnectionLost
                 $this->connection->close(); // forces a clean reconnect and resets DBAL's transaction state

@@ -153,7 +153,9 @@ final class WorkerRunner
         $level = ob_get_level();
         ob_start();
         try {
-            $response = $this->kernel->handle(($this->requestFactory)());
+            $request = ($this->requestFactory)();
+            $response = $this->kernel->handle($request);
+            $response->prepare($request); // no body for HEAD, 204 and 304; the Content-Length that matches the content
         } finally {
             $stray = '';
             while (ob_get_level() > $level) { // also a buffer a controller started and did not close

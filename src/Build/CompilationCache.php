@@ -40,6 +40,13 @@ final class CompilationCache
         $this->write($class . '.routes.php', '<?php return ' . var_export($compilation->routes, true) . ";\n");
         // the manifest goes last and atomically: a half-written cache is never picked up
         $this->write('manifest.php', '<?php return ' . var_export(['class' => $class], true) . ";\n");
+
+        $files = glob($this->directory . '/SlimfonyContainer*');
+        foreach (false === $files ? [] : $files as $file) { // what an earlier warmup left behind
+            if (!str_starts_with(basename($file), $class) && is_file($file)) {
+                @unlink($file);
+            }
+        }
     }
 
     /**

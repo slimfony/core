@@ -12,7 +12,7 @@
 
 A small, strict core for PHP microservices on **FrankenPHP worker mode**. It is built from a few Symfony components, compiled once at build time, and keeps no state between requests.
 
-> **Status:** v1.0.2. What is covered by SemVer (the `@api` classes and the contracts that are not classes) is in [STABILITY.md](STABILITY.md); a breaking change to it is a new major version, and [UPGRADE.md](UPGRADE.md) says what each version asks of your code.
+> **Status:** v1.0.3. What is covered by SemVer (the `@api` classes and the contracts that are not classes) is in [STABILITY.md](STABILITY.md); a breaking change to it is a new major version, and [UPGRADE.md](UPGRADE.md) says what each version asks of your code.
 
 **Contents**
 

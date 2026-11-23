@@ -157,4 +157,11 @@ final class WorkerRunnerTest extends TestCase
         self::assertSame(3, $result['handled']);
         self::assertSame('okokok', $result['output']);
     }
+
+    public function testAnAnswerThatMayNotHaveABodyIsSentWithoutOne(): void
+    {
+        $result = $this->runWorker('/nocontent', 1);
+
+        self::assertSame('', $result['output']);
+    }
 }

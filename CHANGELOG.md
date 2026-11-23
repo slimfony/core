@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format: [Keep a Changel
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-11-23
+
+### Fixed
+- **`Retry` repeats a failure to connect for any work**, idempotent or not: nothing ran, so repeating is safe, and a server that is starting up (57P03) or a database that is restarting no longer fails a write at once. It connects on its own before each attempt, and counts the repeat with the reason `connection_lost`. (PostgreSQL reports every connect failure, a wrong password or an unknown database included, as SQLSTATE 08006, so these are repeated three times too.)
+- **`WorkerRunner` prepares the response before sending it** (`Response::prepare()`): no body for `HEAD`, `204` and `304`, and the `Content-Length` that matches the content.
+- **`CompilationCache` removes the container and route files of earlier warmups** after it has written the new manifest.
+- **`ProcessMetricsEndpoint` writes its answer within the same second** a request head may take; a peer that sends a request and never reads the answer can no longer hold the process.
+
 ## [1.0.2] - 2026-11-23
 
 A bug-fix release after a second independent review. No API change.
@@ -145,7 +153,8 @@ First tagged release: the foundation of the core. Pre-1.0: only classes marked `
 - Quality gates: PHPStan level max, php-cs-fixer (PER-CS and PHP 8.4 risky sets), architecture tests (strict_types, final, `#[\Override]`, typed constants, `@api`/`@internal`, declared dependencies only), random-order tests, executable README samples.
 - Supply chain: GitHub Actions pinned to commit SHAs, Dependabot, weekly outdated-dependency check, `composer audit` in CI.
 
-[Unreleased]: https://github.com/slimfony/core/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/slimfony/core/compare/v1.0.3...HEAD
+[1.0.3]: https://github.com/slimfony/core/compare/v1.0.2...v1.0.3
 [1.0.2]: https://github.com/slimfony/core/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/slimfony/core/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/slimfony/core/compare/v0.7.0...v1.0.0

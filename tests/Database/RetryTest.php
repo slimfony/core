@@ -6,6 +6,7 @@ namespace Slimfony\Core\Tests\Database;
 
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Driver\Exception as DriverException;
+use Doctrine\DBAL\DriverManager;
 use Doctrine\DBAL\Exception\ConnectionLost;
 use Doctrine\DBAL\Exception\DeadlockException;
 use PHPUnit\Framework\TestCase;
@@ -173,5 +174,29 @@ final class RetryTest extends TestCase
         }, idempotent: false);
 
         self::assertSame(2, $attempts->n);
+    }
+
+    public function testAFailureToConnectIsRetriedEvenForANonIdempotentTransaction(): void
+    {
+        if (!\extension_loaded('pdo_pgsql')) {
+            self::markTestSkipped('Needs pdo_pgsql to fail to connect the way PostgreSQL does.');
+        }
+        $connection = DriverManager::getConnection(['driver' => 'pdo_pgsql', 'host' => '127.0.0.1', 'port' => 1, 'user' => 'u', 'password' => 'p', 'dbname' => 'd']); // nobody listens
+        $slept = new Attempts();
+        $ran = new Attempts();
+        $retry = new Retry($connection, sleep: static function (int $micros) use ($slept): void {
+            ++$slept->n;
+        });
+
+        try {
+            $retry->transactional(static function () use ($ran): void {
+                ++$ran->n;
+            }, idempotent: false);
+            self::fail('there is no database');
+        } catch (\Doctrine\DBAL\Exception\ConnectionException) {
+        }
+
+        self::assertSame(0, $ran->n, 'the work never ran: there was no connection');
+        self::assertSame(2, $slept->n, 'three attempts, a pause between them');
     }
 }
